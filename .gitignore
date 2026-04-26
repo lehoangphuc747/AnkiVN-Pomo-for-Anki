@@ -1,0 +1,3 @@
+__pycache__/
+*.pyc
+pomodoro_qt_state.json
