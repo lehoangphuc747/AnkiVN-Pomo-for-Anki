@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giao diện Anki - Study</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        jp: ['Noto Serif JP', 'serif'],
+                    },
+                    colors: {
+                        anki: {
+                            bg: '#F8F7F3',        // Nền chung (hơi vàng nhạt)
+                            window: '#FCFBF9',    // Nền cửa sổ chính
+                            border: '#E8E6E0',    // Viền nhẹ
+                            textMain: '#3E3C38',  // Chữ chính
+                            textMuted: '#9B9890', // Chữ phụ/mờ
+                            red: '#D94B43',       // Màu đỏ nhấn
+                            redLight: '#FEF6F5',  // Nền đỏ nhạt cho nút Good
+                            cardBg: '#FFFFFF',    // Nền thẻ
+                            badgeBg: '#FCFBF8',   // Nền badge
+                            badgeFooter: '#F5EFE6', // Nền footer badge
+                            iconGreen: '#739E73', // Màu xanh icon nhạc
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Tùy chỉnh thanh cuộn */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .mac-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .btn-loop-toggle,
+        .btn-audio-play {
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+        .btn-loop-toggle.is-active {
+            color: #D94B43;
+            background: #FEF6F5;
+            box-shadow: 0 0 0 4px rgba(217, 75, 67, 0.12);
+            transform: scale(1.08);
+        }
+        .btn-audio-play.is-playing {
+            box-shadow: 0 0 0 6px rgba(217, 75, 67, 0.14), 0 8px 18px rgba(217, 75, 67, 0.24);
+            transform: scale(1.08);
+        }
+        .pomo-done-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-[#EBE9E4] h-screen flex items-center justify-center font-sans text-anki-textMain overflow-hidden selection:bg-anki-red selection:text-white">
+
+    <!-- Cửa sổ chính mô phỏng ứng dụng macOS -->
+    <div id="app-window" class="w-[1150px] h-[780px] bg-anki-window border border-anki-border rounded-xl shadow-2xl flex flex-col relative overflow-hidden">
+
+        <!-- Thanh Tiêu đề (macOS style) -->
+        <div class="h-10 border-b border-anki-border flex items-center px-4 bg-[#F5F4F0] relative shrink-0 z-20">
+            <div class="flex gap-2 z-10">
+                <div class="mac-btn bg-[#FF5F56] border border-[#E0443E]"></div>
+                <div class="mac-btn bg-[#FFBD2E] border border-[#DEA123]"></div>
+                <div class="mac-btn bg-[#27C93F] border border-[#1AAB29]"></div>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none text-xs text-gray-500 font-medium">
+                Anki — Study
+            </div>
+        </div>
+
+        <!-- Thanh Menu -->
+        <div class="h-12 border-b border-anki-border flex items-center px-6 shrink-0 bg-anki-window relative z-20">
+            <!-- Cột trái: Trống để cân bằng -->
+            <div class="flex-1"></div>
+
+            <!-- Cột giữa: Menu căn giữa -->
+            <div class="flex gap-6 text-sm font-medium text-anki-textMuted justify-center">
+                <a href="#" class="text-anki-textMain hover:text-anki-textMain transition-colors">Decks</a>
+                <a href="#" class="hover:text-anki-textMain transition-colors">Add</a>
+                <a href="#" class="hover:text-anki-textMain transition-colors">Browse</a>
+                <a href="#" class="hover:text-anki-textMain transition-colors">Stats</a>
+                <a href="#" class="hover:text-anki-textMain transition-colors">Sync</a>
+            </div>
+
+            <div class="flex-1"></div>
+        </div>
+
+        <!-- Thanh Trạng thái / Pomodoro (Style: Under Toolbar) -->
+        <div id="status-bar-horizontal" class="flex h-16 border-b border-anki-border items-center justify-between px-6 shrink-0 transition-all bg-anki-window z-20">
+            <!-- Trái: Pomodoro, phiên và kinh nghiệm -->
+            <div class="flex items-center gap-5 w-1/3 justify-start">
+                <div class="mode-accent-text flex items-center gap-2 text-anki-red">
+                    <span class="mode-emoji text-base leading-none">🍅</span>
+                    <span class="mode-label text-xs font-semibold tracking-widest uppercase mt-0.5">Pomodoro</span>
+                </div>
+                <button class="btn-session-history flex items-center gap-2 rounded-full px-2 py-1 hover:bg-[#F2F1EC] transition-colors" title="Xem history phiên này">
+                    <div class="flex gap-1.5">
+                        <div class="w-2 h-2 rounded-full bg-anki-red"></div>
+                        <div class="w-2 h-2 rounded-full bg-anki-red"></div>
+                        <div class="w-2 h-2 rounded-full bg-anki-red relative after:content-[''] after:absolute after:-inset-1 after:rounded-full after:bg-anki-red/20"></div>
+                        <div class="w-2 h-2 rounded-full border-[1.5px] border-[#D9D7D2] bg-[#F2F1EC]"></div>
+                    </div>
+                    <span class="text-xs font-medium text-anki-textMuted">3/4</span>
+                </button>
+                <button class="btn-experience-details text-xs font-semibold text-anki-textMain rounded-full px-2 py-1 hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết kinh nghiệm">
+                    12<span class="text-anki-textMuted">/40 ✨</span>
+                </button>
+            </div>
+
+            <!-- Giữa: Timer và tiến độ thời gian -->
+            <div class="flex flex-col items-center justify-center gap-1.5 w-1/3">
+                <span class="mode-accent-text font-sans text-3xl font-semibold text-anki-red tabular-nums tracking-tight timer-display">08:13</span>
+                <div class="w-36 h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden">
+                    <div class="mode-accent-bg timer-linear-progress h-full bg-anki-red rounded-full transition-[width] duration-1000 ease-linear"></div>
+                </div>
+            </div>
+
+            <!-- Phải: Thống kê và Điều khiển -->
+            <div class="flex items-center justify-end gap-6 w-1/3 text-anki-textMuted text-sm">
+                <div class="flex items-center gap-4">
+                    <button class="btn-streak-details flex items-center gap-1.5 rounded-full px-2 py-1 hover:bg-[#F2F1EC] hover:text-anki-textMain transition-colors" title="Xem chi tiết streak">
+                        <span class="text-sm leading-none">🔥</span>
+                        <span>12d</span>
+                    </button>
+                    <button class="btn-cards-details flex items-center gap-1.5 rounded-full px-2 py-1 text-anki-red font-medium hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết cards studied">
+                        <i class="ph-fill ph-lightning text-sm"></i>
+                        <span>+42 thẻ</span>
+                    </button>
+                    <button class="btn-retention-details flex items-center gap-1.5 rounded-full px-2 py-1 text-[#739E73] font-semibold hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết retention">
+                        <span>94%</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4 text-lg">
+                    <button class="hover:text-anki-textMain transition-colors btn-pause" title="Pause / Resume"><i class="ph-fill ph-pause"></i></button>
+                    <button class="hover:text-anki-textMain transition-colors btn-stop" title="Stop"><i class="ph-fill ph-square"></i></button>
+                    <button id="btn-audio-toolbar" class="hover:text-anki-textMain transition-colors btn-audio" title="Mở trình phát nhạc"><i class="ph-bold ph-music-notes"></i></button>
+                    <button class="hover:text-anki-textMain transition-colors btn-settings" title="Settings"><i class="ph ph-gear"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bảng điều khiển Âm thanh (Audio Widget dùng chung) -->
+        <div id="audio-widget" class="absolute top-28 right-6 w-80 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <!-- Info -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-[#F5F4F0] rounded-lg flex items-center justify-center overflow-hidden shrink-0 border border-anki-border relative group">
+                    <i class="ph-fill ph-music-notes text-2xl text-gray-300"></i>
+                    <div class="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center transition-all">
+                        <i class="ph-fill ph-play text-white"></i>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <h4 id="audio-title" class="text-sm font-semibold text-anki-textMain truncate">Lofi Study Beats</h4>
+                    <p id="audio-source" class="text-[11px] text-anki-textMuted truncate">Chillhop Music</p>
+                </div>
+            </div>
+
+            <!-- Source -->
+            <div class="mb-4 space-y-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-anki-textMuted tracking-widest uppercase mb-1.5">Âm thanh có sẵn</label>
+                    <select id="audio-preset" class="w-full border border-anki-border rounded-lg bg-white px-3 py-2 text-xs outline-none focus:border-anki-red text-anki-textMain font-medium shadow-sm">
+                        <option value="lofi" data-title="Lofi Study Beats" data-source="Chillhop Music">Lofi Study Beats</option>
+                        <option value="rain" data-title="Rain Ambience" data-source="Built-in Focus Sounds">Rain Ambience</option>
+                        <option value="brown-noise" data-title="Brown Noise" data-source="Built-in Focus Sounds">Brown Noise</option>
+                        <option value="piano" data-title="Soft Piano" data-source="Built-in Focus Sounds">Soft Piano</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-anki-textMuted tracking-widest uppercase mb-1.5">YouTube link</label>
+                    <div class="flex gap-2">
+                        <input id="youtube-url-input" type="url" placeholder="https://youtu.be/..." class="flex-1 min-w-0 border border-anki-border rounded-lg bg-white px-3 py-2 text-xs outline-none focus:border-anki-red text-anki-textMain shadow-sm">
+                        <button id="btn-load-youtube" class="bg-anki-red text-white rounded-lg px-3 py-2 text-xs font-semibold hover:bg-[#C23F38] transition-colors">Load</button>
+                    </div>
+                    <p id="youtube-status" class="mt-1.5 text-[10px] text-anki-textMuted">Dán link YouTube để phát nhạc học tập từ URL.</p>
+                </div>
+
+                <div id="youtube-preview" class="hidden overflow-hidden rounded-xl border border-anki-border bg-[#F8F7F3]">
+                    <iframe id="youtube-player" class="w-full h-32" title="YouTube audio player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="w-full h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden cursor-pointer group relative">
+                    <div class="h-full bg-anki-red w-[45%] rounded-full relative group-hover:bg-[#C23F38] transition-colors"></div>
+                </div>
+                <div class="flex justify-between mt-1.5 text-[10px] text-anki-textMuted font-medium tabular-nums">
+                    <span>1:12</span>
+                    <span>2:45</span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center justify-between px-2 text-anki-textMain">
+                <button class="hover:text-anki-red transition-colors"><i class="ph-bold ph-shuffle text-sm"></i></button>
+                <button class="hover:text-anki-red transition-colors"><i class="ph-fill ph-skip-back text-xl"></i></button>
+                <button class="btn-audio-play w-10 h-10 bg-anki-red text-white rounded-full flex items-center justify-center hover:bg-[#C23F38] shadow-sm transform hover:scale-105 active:scale-95" aria-pressed="false"><i class="ph-fill ph-play text-lg ml-0.5"></i></button>
+                <button class="hover:text-anki-red transition-colors"><i class="ph-fill ph-skip-forward text-xl"></i></button>
+                <button class="btn-loop-toggle w-8 h-8 rounded-full flex items-center justify-center hover:text-anki-red transition-colors" aria-pressed="false"><i class="ph-bold ph-repeat text-sm"></i></button>
+            </div>
+        </div>
+
+        <!-- Session History Popover -->
+        <div id="session-history-popover" class="absolute top-28 left-6 w-80 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 text-anki-red text-xs font-bold tracking-widest uppercase mb-1">
+                        <span class="leading-none">🍅</span>
+                        <span>Session History</span>
+                    </div>
+                    <h3 class="text-base font-semibold text-anki-textMain">Pomodoro 3 / 4</h3>
+                    <p class="text-[11px] text-anki-textMuted mt-0.5">Phiên hiện tại của season này</p>
+                </div>
+                <button id="btn-close-session-history" class="text-[#A6A39C] hover:text-anki-red transition-colors" title="Đóng history">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-anki-red text-white text-[11px] font-bold flex items-center justify-center">1</div>
+                        <div class="w-px flex-1 bg-[#E8E6E0] mt-1"></div>
+                    </div>
+                    <div class="pb-2 flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-anki-textMain">Pomodoro 1</span>
+                            <span class="text-[11px] text-[#739E73] font-semibold">09:25</span>
+                        </div>
+                        <p class="text-[11px] text-anki-textMuted mt-0.5">Completed · 25m focus · 14 thẻ · 4 ✨</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-[#739E73] text-white text-[11px] font-bold flex items-center justify-center">☕</div>
+                        <div class="w-px flex-1 bg-[#E8E6E0] mt-1"></div>
+                    </div>
+                    <div class="pb-2 flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-anki-textMain">Break</span>
+                            <span class="text-[11px] text-[#739E73] font-semibold">09:30</span>
+                        </div>
+                        <p class="text-[11px] text-anki-textMuted mt-0.5">Completed · 5m nghỉ · reset attention</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-anki-red text-white text-[11px] font-bold flex items-center justify-center">2</div>
+                        <div class="w-px flex-1 bg-[#E8E6E0] mt-1"></div>
+                    </div>
+                    <div class="pb-2 flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-anki-textMain">Pomodoro 2</span>
+                            <span class="text-[11px] text-[#739E73] font-semibold">09:55</span>
+                        </div>
+                        <p class="text-[11px] text-anki-textMuted mt-0.5">Completed · 25m focus · 16 thẻ · 5 ✨</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-[#739E73] text-white text-[11px] font-bold flex items-center justify-center">☕</div>
+                        <div class="w-px flex-1 bg-[#E8E6E0] mt-1"></div>
+                    </div>
+                    <div class="pb-2 flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-anki-textMain">Break</span>
+                            <span class="text-[11px] text-[#739E73] font-semibold">10:00</span>
+                        </div>
+                        <p class="text-[11px] text-anki-textMuted mt-0.5">Completed · 5m nghỉ · chuẩn bị phiên 3</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-anki-red text-white text-[11px] font-bold flex items-center justify-center">3</div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-anki-textMain">Pomodoro 3 / 4</span>
+                            <span class="text-[11px] text-anki-red font-semibold">10:00</span>
+                        </div>
+                        <p class="text-[11px] text-anki-textMuted mt-0.5">Current · đang học · 12/40 ✨ · +42 thẻ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Experience Details Popover -->
+        <div id="experience-popover" class="absolute top-28 left-6 w-72 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 text-anki-red text-xs font-bold tracking-widest uppercase mb-1">
+                        <span class="leading-none">✨</span>
+                        <span>Experience</span>
+                    </div>
+                    <h3 class="text-base font-semibold text-anki-textMain">12 / 40 ✨</h3>
+                    <p class="text-[11px] text-anki-textMuted mt-0.5">Kinh nghiệm trong session hiện tại</p>
+                </div>
+                <button id="btn-close-experience" class="text-[#A6A39C] hover:text-anki-red transition-colors" title="Đóng experience">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <div class="w-full h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden">
+                    <div class="h-full bg-anki-red w-[30%] rounded-full"></div>
+                </div>
+                <div class="flex justify-between mt-1.5 text-[10px] text-anki-textMuted font-medium">
+                    <span>30%</span>
+                    <span>28 ✨ còn lại</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Again</span>
+                    <span class="font-semibold text-anki-textMain">2 thẻ · 0 ✨</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Hard</span>
+                    <span class="font-semibold text-anki-textMain">6 thẻ · 2 ✨</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Good</span>
+                    <span class="font-semibold text-anki-textMain">28 thẻ · 8 ✨</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Easy</span>
+                    <span class="font-semibold text-anki-textMain">6 thẻ · 2 ✨</span>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-[#F5EFE6] px-3 py-2 text-[11px] text-[#8C8A84] font-medium">
+                Hoàn thành 40 ✨ để kết thúc mục tiêu kinh nghiệm của phiên này.
+            </div>
+        </div>
+
+        <!-- Cards Studied Details Popover -->
+        <div id="cards-popover" class="absolute top-28 left-6 w-72 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 text-anki-red text-xs font-bold tracking-widest uppercase mb-1">
+                        <i class="ph-fill ph-lightning text-sm"></i>
+                        <span>Cards Studied</span>
+                    </div>
+                    <h3 class="text-base font-semibold text-anki-textMain">+42 thẻ</h3>
+                    <p class="text-[11px] text-anki-textMuted mt-0.5">Số thẻ đã học trong session hiện tại</p>
+                </div>
+                <button id="btn-close-cards" class="text-[#A6A39C] hover:text-anki-red transition-colors" title="Đóng cards studied">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="rounded-xl bg-[#F8F7F3] border border-anki-border p-3">
+                    <div class="text-[10px] text-anki-textMuted font-bold uppercase tracking-wider">New</div>
+                    <div class="text-lg font-semibold text-anki-textMain mt-1">18</div>
+                </div>
+                <div class="rounded-xl bg-[#F8F7F3] border border-anki-border p-3">
+                    <div class="text-[10px] text-anki-textMuted font-bold uppercase tracking-wider">Review</div>
+                    <div class="text-lg font-semibold text-anki-textMain mt-1">24</div>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Again</span>
+                    <span class="font-semibold text-anki-textMain">2 thẻ</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Hard</span>
+                    <span class="font-semibold text-anki-textMain">6 thẻ</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Good</span>
+                    <span class="font-semibold text-anki-textMain">28 thẻ</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Easy</span>
+                    <span class="font-semibold text-anki-textMain">6 thẻ</span>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-[#F5EFE6] px-3 py-2 text-[11px] text-[#8C8A84] font-medium">
+                Retention hiện tại: <span class="font-semibold text-[#739E73]">94%</span>
+            </div>
+        </div>
+
+        <!-- Streak Details Popover -->
+        <div id="streak-popover" class="absolute top-28 left-6 w-72 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 text-anki-red text-xs font-bold tracking-widest uppercase mb-1">
+                        <span class="leading-none">🔥</span>
+                        <span>Streak</span>
+                    </div>
+                    <h3 class="text-base font-semibold text-anki-textMain">12 days</h3>
+                    <p class="text-[11px] text-anki-textMuted mt-0.5">Chuỗi ngày học liên tiếp</p>
+                </div>
+                <button id="btn-close-streak" class="text-[#A6A39C] hover:text-anki-red transition-colors" title="Đóng streak">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="flex items-end gap-2 h-20 mb-4">
+                <div class="flex-1 h-[38%] bg-[#E8E6E0] rounded-t-md"></div>
+                <div class="flex-1 h-[55%] bg-[#E8E6E0] rounded-t-md"></div>
+                <div class="flex-1 h-[68%] bg-[#E8E6E0] rounded-t-md"></div>
+                <div class="flex-1 h-[76%] bg-[#E8E6E0] rounded-t-md"></div>
+                <div class="flex-1 h-[64%] bg-[#E8E6E0] rounded-t-md"></div>
+                <div class="flex-1 h-[90%] bg-anki-red rounded-t-md"></div>
+                <div class="flex-1 h-full bg-anki-red rounded-t-md"></div>
+            </div>
+
+            <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Hôm nay</span>
+                    <span class="font-semibold text-anki-textMain">+42 thẻ · 12 ✨</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Longest streak</span>
+                    <span class="font-semibold text-anki-textMain">18 days</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Streak goal</span>
+                    <span class="font-semibold text-anki-textMain">Study daily</span>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-[#F5EFE6] px-3 py-2 text-[11px] text-[#8C8A84] font-medium">
+                Học thêm hôm nay để giữ chuỗi <span class="font-semibold text-anki-textMain">12 ngày</span>.
+            </div>
+        </div>
+
+        <!-- Retention Details Popover -->
+        <div id="retention-popover" class="absolute top-28 left-6 w-72 bg-white border border-anki-border rounded-2xl shadow-xl hidden flex-col p-4 z-50 cursor-default">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 text-[#739E73] text-xs font-bold tracking-widest uppercase mb-1">
+                        <i class="ph-bold ph-trend-up text-sm"></i>
+                        <span>Retention</span>
+                    </div>
+                    <h3 class="text-base font-semibold text-anki-textMain">94%</h3>
+                    <p class="text-[11px] text-anki-textMuted mt-0.5">Tỷ lệ nhớ đúng trong session hiện tại</p>
+                </div>
+                <button id="btn-close-retention" class="text-[#A6A39C] hover:text-anki-red transition-colors" title="Đóng retention">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <div class="w-full h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden">
+                    <div class="h-full bg-[#739E73] w-[94%] rounded-full"></div>
+                </div>
+                <div class="flex justify-between mt-1.5 text-[10px] text-anki-textMuted font-medium">
+                    <span>Correct 40</span>
+                    <span>Again 2</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-[12px]">
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Good + Easy</span>
+                    <span class="font-semibold text-[#739E73]">34 thẻ</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Hard</span>
+                    <span class="font-semibold text-anki-textMain">6 thẻ</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-[#8C8A84]">Again</span>
+                    <span class="font-semibold text-anki-red">2 thẻ</span>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-[#F5EFE6] px-3 py-2 text-[11px] text-[#8C8A84] font-medium">
+                Retention tốt. Giữ trên <span class="font-semibold text-anki-textMain">90%</span> để session ổn định.
+            </div>
+        </div>
+
+        <!-- KHU VỰC CHÍNH (Chia layout flex row cho Sidebar Panel) -->
+        <div class="flex-1 flex w-full relative overflow-hidden bg-anki-bg">
+
+            <!-- WIDGET 3: Sidebar Panel (Mặc định hiển thị theo request) -->
+            <div id="status-sidebar" class="hidden w-[260px] h-full bg-[#FCFBF8] border-r border-[#E0DED5] flex-col px-6 py-8 shrink-0 z-10 custom-scrollbar overflow-y-auto">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-8">
+                    <div class="flex items-center gap-2 text-[#A6A39C] text-xs font-bold tracking-widest uppercase">
+                        <span class="mode-emoji text-sm leading-none">🍅</span> <span class="mode-label">POMODORO</span>
+                    </div>
+                    <button class="text-[#A6A39C] hover:text-anki-textMain transition-colors btn-settings" title="Settings"><i class="ph ph-gear"></i></button>
+                </div>
+
+                <!-- Timer Circular -->
+                <div class="flex flex-col items-center mb-6">
+                    <div class="relative w-[160px] h-[160px] flex items-center justify-center">
+                        <!-- Circle Background -->
+                        <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="16" fill="none" class="stroke-[#EFECE5]" stroke-width="2"></circle>
+                            <!-- Circle Progress -->
+                            <circle id="sidebar-circular-progress" cx="18" cy="18" r="16" fill="none" class="mode-accent-stroke timer-circular-progress stroke-anki-red transition-all duration-1000 ease-linear" stroke-width="2" stroke-dasharray="100.53" stroke-dashoffset="30" stroke-linecap="round"></circle>
+                        </svg>
+                        <div class="flex flex-col items-center justify-center text-center z-10">
+                            <span class="mode-accent-text font-sans text-4xl font-semibold text-anki-textMain tabular-nums tracking-tight leading-none timer-display">08:13</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pips -->
+                <button class="btn-session-history flex flex-col items-center mb-8 rounded-2xl px-3 py-2 hover:bg-[#F2F1EC] transition-colors" title="Xem history phiên này">
+                    <div class="flex gap-1.5 mb-2.5">
+                        <div class="w-2 h-2 rounded-full bg-anki-red"></div>
+                        <div class="w-2 h-2 rounded-full bg-anki-red"></div>
+                        <div class="w-2 h-2 rounded-full bg-anki-red"></div>
+                        <div class="w-2 h-2 rounded-full border-[1.5px] border-[#D9D7D2] bg-[#F2F1EC]"></div>
+                    </div>
+                    <span class="text-[11px] text-[#8C8A84] font-medium">Pomo 3 / 4 · long break after</span>
+                </button>
+
+                <!-- Controls -->
+                <div class="flex justify-center items-center gap-5 mb-8">
+                    <button class="w-[50px] h-[36px] bg-[#D94B43] text-white rounded-[10px] flex items-center justify-center hover:bg-[#C23F38] transition-colors shadow-sm btn-pause"><i class="ph-fill ph-pause"></i></button>
+                    <button class="text-[#595752] hover:text-anki-textMain transition-colors btn-stop"><i class="ph-fill ph-square text-[13px]"></i></button>
+                </div>
+
+                <div class="w-full border-t border-dashed border-[#E0DED5] mb-6"></div>
+
+                <!-- Stats -->
+                <div class="flex flex-col gap-2 text-[13px] font-medium">
+                    <button class="btn-experience-details grid grid-cols-[1fr_auto] items-center gap-4 rounded-xl px-2 py-1.5 text-left hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết kinh nghiệm">
+                        <span class="text-[#8C8A84] justify-self-start">Experience</span>
+                        <span class="font-bold text-anki-textMain justify-self-end text-right tabular-nums">12 <span class="text-[#A6A39C] font-normal">/ 40 ✨</span></span>
+                    </button>
+                    <button class="btn-retention-details grid grid-cols-[1fr_auto] items-center gap-4 rounded-xl px-2 py-1.5 text-left hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết retention">
+                        <span class="text-[#8C8A84] justify-self-start">Retention</span>
+                        <span class="font-bold text-[#739E73] justify-self-end text-right tabular-nums">94%</span>
+                    </button>
+                    <button class="btn-cards-details grid grid-cols-[1fr_auto] items-center gap-4 rounded-xl px-2 py-1.5 text-left hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết cards studied">
+                        <span class="text-[#8C8A84] justify-self-start">Cards Studied</span>
+                        <span class="font-bold text-anki-red justify-self-end text-right tabular-nums">+42</span>
+                    </button>
+                    <button class="btn-streak-details grid grid-cols-[1fr_auto] items-center gap-4 rounded-xl px-2 py-1.5 text-left hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết streak">
+                        <span class="text-[#8C8A84] flex items-center gap-1.5 justify-self-start"><span class="text-sm leading-none">🔥</span> Streak</span>
+                        <span class="font-bold text-anki-textMain justify-self-end text-right tabular-nums">12 days</span>
+                    </button>
+                </div>
+
+                <!-- Bottom Audio Mini Widget -->
+                <div class="mt-auto pt-6">
+                    <div class="bg-[#F2F1EC] rounded-xl p-3 flex items-center justify-between text-[11px] font-medium text-[#595752] cursor-pointer hover:bg-[#EAE8E2] transition-colors btn-audio">
+                        <div class="flex items-center gap-2">
+                            <i class="ph-bold ph-music-notes text-sm"></i>
+                            <span>Lo-fi study · playing</span>
+                        </div>
+                        <div class="w-2.5 h-2.5 bg-[#A6A39C] rounded-[2px]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vùng hiển thị Flashcard (Center content) -->
+            <div class="flex-1 flex flex-col items-center justify-center relative overflow-y-auto">
+
+                <!-- WIDGET 2: Corner Badge (Ẩn mặc định) -->
+                <div id="status-badge-corner" class="hidden absolute top-6 right-6 w-[210px] bg-anki-badgeBg border border-anki-border rounded-[24px] shadow-[0_8px_20px_rgba(0,0,0,0.06)] p-4 flex-col z-40">
+                    <!-- Nút drag / Divider top -->
+                    <div id="corner-badge-drag-handle" class="flex justify-center mb-3 cursor-grab active:cursor-grabbing" title="Kéo để di chuyển Corner Badge">
+                        <div class="w-8 h-1 bg-[#E0DED5] rounded-full"></div>
+                    </div>
+
+                    <!-- Timer Circular -->
+                    <div class="flex items-center gap-4 mb-4 mt-1 px-1">
+                        <div class="relative w-[50px] h-[50px] shrink-0">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" class="stroke-[#EFECE5]" stroke-width="3"></circle>
+                                <circle id="corner-circular-progress" cx="18" cy="18" r="16" fill="none" class="mode-accent-stroke timer-circular-progress stroke-anki-red transition-all duration-1000 ease-linear" stroke-width="3" stroke-dasharray="100.53" stroke-dashoffset="40" stroke-linecap="round"></circle>
+                            </svg>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <span class="text-[10px] font-bold text-[#8C8A84] tracking-[0.15em] uppercase leading-none mb-1.5">
+                                <span class="mode-emoji">🍅</span>
+                                <span class="mode-label">Pomodoro</span>
+                            </span>
+                            <span class="mode-accent-text font-sans text-[28px] font-semibold text-anki-textMain tabular-nums tracking-tight leading-none timer-display">08:13</span>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="w-full h-[1px] bg-gradient-to-r from-transparent via-[#E8E6E0] to-transparent mb-4"></div>
+
+                    <!-- Pips & Session -->
+                    <button class="btn-session-history flex justify-between items-center mb-3 px-1 w-full rounded-xl py-1 hover:bg-[#F2F1EC] transition-colors" title="Xem history phiên này">
+                        <div class="flex gap-[5px] items-center">
+                            <div class="w-[9px] h-[9px] rounded-full bg-anki-red"></div>
+                            <div class="w-[9px] h-[9px] rounded-full bg-anki-red"></div>
+                            <div class="w-[9px] h-[9px] rounded-full bg-anki-red relative after:content-[''] after:absolute after:-inset-[3px] after:rounded-full after:bg-anki-red/15"></div>
+                            <div class="w-[9px] h-[9px] rounded-full border-[1.5px] border-[#D9D7D2] bg-[#F2F1EC]"></div>
+                        </div>
+                        <span class="text-[11px] text-[#8C8A84] font-medium tracking-wide">3 / 4</span>
+                    </button>
+
+                    <!-- Cards & XP -->
+                    <div class="mb-5 px-1">
+                        <div class="flex justify-between items-center mb-2">
+                            <button class="btn-experience-details text-[13px] text-[#A6A39C] tracking-tight rounded-lg px-1 py-0.5 hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết kinh nghiệm">
+                                <strong class="text-anki-textMain text-sm font-semibold">12</strong> / 40 ✨
+                            </button>
+                            <button class="btn-cards-details flex items-center gap-1 text-anki-red text-xs font-semibold rounded-lg px-1 py-0.5 hover:bg-[#F2F1EC] transition-colors" title="Xem chi tiết cards studied">
+                                <i class="ph-fill ph-lightning"></i>
+                                <span>+42</span>
+                            </button>
+                        </div>
+                        <div class="w-full h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden">
+                            <div class="h-full bg-anki-red w-[30%] rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex justify-between items-center px-1 mb-5">
+                        <button class="text-[#595752] hover:text-anki-textMain transition-colors btn-pause" title="Pause / Resume"><i class="ph-fill ph-pause text-sm"></i></button>
+                        <button class="text-[#595752] hover:text-anki-textMain transition-colors btn-stop" title="Stop"><i class="ph-fill ph-square text-sm"></i></button>
+                        <button id="btn-audio-corner" class="text-anki-iconGreen hover:opacity-80 transition-opacity" title="Mở trình phát nhạc"><i class="ph-bold ph-music-notes text-[15px]"></i></button>
+                        <button class="text-[#A6A39C] hover:text-anki-textMain transition-colors btn-settings" title="Settings"><i class="ph ph-gear text-[17px]"></i></button>
+                    </div>
+
+                    <!-- Inline Audio Section -->
+                    <div id="corner-audio-section" class="hidden flex-col w-full border-t border-[#E8E6E0] pt-4 pb-2 mb-2 transition-all duration-300">
+                        <!-- ... (Audio widget inline content giữ nguyên) ... -->
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-10 h-10 bg-[#F5F4F0] rounded-md flex items-center justify-center shrink-0 border border-anki-border relative group">
+                                <i class="ph-fill ph-music-notes text-xl text-gray-300"></i>
+                            </div>
+                            <div class="flex-1 overflow-hidden">
+                                <h4 class="text-xs font-semibold text-anki-textMain truncate">Lofi Study Beats</h4>
+                                <p class="text-[10px] text-anki-textMuted truncate">Chillhop Music</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-1.5 bg-[#E8E6E0] rounded-full overflow-hidden mb-3">
+                            <div class="h-full bg-anki-red w-[45%] rounded-full"></div>
+                        </div>
+                        <div class="flex items-center justify-between px-1 text-[#595752]">
+                            <button class="hover:text-anki-red transition-colors" title="Previous track"><i class="ph-fill ph-skip-back text-sm"></i></button>
+                            <button class="btn-audio-play w-8 h-8 bg-anki-red text-white rounded-full flex items-center justify-center hover:bg-[#C23F38]" title="Play / Pause" aria-pressed="false"><i class="ph-fill ph-play text-sm ml-0.5"></i></button>
+                            <button class="hover:text-anki-red transition-colors" title="Next track"><i class="ph-fill ph-skip-forward text-sm"></i></button>
+                            <button class="btn-loop-toggle rounded-full w-7 h-7 flex items-center justify-center hover:text-anki-red transition-colors" title="Loop" aria-pressed="false"><i class="ph-bold ph-repeat text-sm"></i></button>
+                        </div>
+                        <div class="mt-3">
+                            <div class="flex gap-1.5">
+                                <input id="corner-youtube-url-input" type="url" placeholder="YouTube URL" class="flex-1 min-w-0 border border-anki-border rounded-lg bg-white px-2 py-1.5 text-[10px] outline-none focus:border-anki-red text-anki-textMain">
+                                <button id="btn-load-corner-youtube" class="bg-anki-red text-white rounded-lg px-2 py-1.5 text-[10px] font-semibold hover:bg-[#C23F38] transition-colors">Load</button>
+                            </div>
+                            <p id="corner-youtube-status" class="mt-1 text-[10px] text-anki-textMuted">Hỗ trợ link YouTube.</p>
+                            <div id="corner-youtube-preview" class="hidden mt-2 overflow-hidden rounded-lg border border-anki-border bg-[#F8F7F3]">
+                                <iframe id="corner-youtube-player" class="w-full h-24" title="Corner YouTube audio player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Box -->
+                    <button class="btn-streak-details bg-anki-badgeFooter rounded-[14px] py-2 px-3 flex justify-center items-center text-[11px] text-[#8C8A84] font-medium hover:bg-[#EFE8DC] transition-colors" title="Xem chi tiết streak">
+                        <div class="flex items-center gap-1.5">
+                            <span class="leading-none">🔥</span>
+                            <span>12d</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Nội dung chính của thẻ (Flashcard) -->
+                <div class="flex flex-col items-center">
+                    <div class="flex items-center gap-4 mb-6 text-sm text-[#A6A39C] font-medium tracking-wide">
+                        <span>Programming::Algorithms</span>
+                        <span class="text-xs">•</span>
+                        <span>Card 12 / 40</span>
+                        <div class="w-32 h-0.5 bg-[#E8E6E0] rounded-full ml-2">
+                            <div class="h-full bg-anki-red w-[30%] rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Thẻ Flashcard -->
+                    <div class="w-[580px] min-h-[280px] bg-anki-cardBg border border-anki-border rounded-[1.75rem] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center relative px-12 py-10">
+                        <div class="absolute top-8 text-[10px] font-bold text-[#A6A39C] tracking-[0.2em] uppercase">
+                            CS · ALGORITHMS
+                        </div>
+
+                        <!-- Câu hỏi / Mặt trước thẻ -->
+                        <div class="font-sans text-[2.2rem] font-semibold text-anki-textMain leading-snug text-center mt-6">
+                            What is the time complexity of binary search?
+                        </div>
+                    </div>
+
+                    <!-- Các nút hành động (Đánh giá) -->
+                    <div class="flex gap-4 mt-10">
+                        <button class="w-[90px] h-[64px] bg-anki-cardBg border border-anki-border rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors shadow-sm">
+                            <span class="text-sm font-medium text-anki-textMain">Again</span>
+                            <span class="text-[11px] text-anki-textMuted">&lt;1m</span>
+                        </button>
+                        <button class="w-[90px] h-[64px] bg-anki-cardBg border border-anki-border rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors shadow-sm">
+                            <span class="text-sm font-medium text-anki-textMain">Hard</span>
+                            <span class="text-[11px] text-anki-textMuted">6m</span>
+                        </button>
+                        <!-- Nút Good -->
+                        <button class="w-[90px] h-[64px] bg-anki-redLight border border-anki-red rounded-xl flex flex-col items-center justify-center gap-1 shadow-sm">
+                            <span class="text-sm font-medium text-anki-red">Good</span>
+                            <span class="text-[11px] text-anki-red opacity-70">10m</span>
+                        </button>
+                        <button class="w-[90px] h-[64px] bg-anki-cardBg border border-anki-border rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors shadow-sm">
+                            <span class="text-sm font-medium text-anki-textMain">Easy</span>
+                            <span class="text-[11px] text-anki-textMuted">4d</span>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Hộp thoại Settings (Ẩn mặc định) -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/20 hidden items-center justify-center z-50 transition-opacity">
+        <div class="bg-anki-window w-[440px] rounded-xl shadow-2xl border border-anki-border overflow-hidden">
+            <div class="h-10 border-b border-anki-border flex items-center justify-between px-4 bg-[#F5F4F0]">
+                <span class="font-medium text-sm text-anki-textMain">Thiết lập Anki (Settings)</span>
+                <button id="btn-close-settings" class="text-[#A6A39C] hover:text-anki-red transition-colors">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-anki-textMain">Kiểu thanh trạng thái (Style)</span>
+                    <select id="setting-status-style" class="border border-anki-border rounded-lg bg-white px-3 py-1.5 text-sm outline-none focus:border-anki-red text-anki-textMain font-medium shadow-sm cursor-pointer">
+                        <option value="sidebar">Sidebar Panel</option>
+                        <option value="under" selected>Under Toolbar</option>
+                        <option value="corner">Corner Badge</option>
+                    </select>
+                </div>
+                <div class="w-full h-px bg-anki-border"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-anki-textMain">Thời gian Pomodoro</span>
+                    <div class="flex items-center gap-2">
+                        <input id="setting-pomodoro-minutes" type="number" min="1" max="180" step="1" value="25" class="w-20 border border-anki-border rounded-lg bg-white px-3 py-1.5 text-sm outline-none focus:border-anki-red text-anki-textMain font-medium shadow-sm">
+                        <span class="text-sm text-anki-textMuted font-medium">phút</span>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-anki-textMain">Time Break</span>
+                    <div class="flex items-center gap-2">
+                        <input id="setting-break-minutes" type="number" min="1" max="60" step="1" value="5" class="w-20 border border-anki-border rounded-lg bg-white px-3 py-1.5 text-sm outline-none focus:border-anki-red text-anki-textMain font-medium shadow-sm">
+                        <span class="text-sm text-anki-textMuted font-medium">phút</span>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="block text-sm font-medium text-anki-textMain">Auto bắt đầu Break</span>
+                        <span class="block text-[11px] text-anki-textMuted mt-0.5">Tắt để hỏi trước khi nghỉ</span>
+                    </div>
+                    <input id="setting-auto-start-break" type="checkbox" checked class="w-4 h-4 accent-anki-red cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pomodoro Done Popup -->
+    <div id="pomodoro-done-modal" class="fixed inset-0 bg-[#FEF8F5]/95 hidden items-center justify-center z-[70] selection:bg-anki-red selection:text-white overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.72)_0%,transparent_70%)] pointer-events-none"></div>
+
+        <div class="pomo-done-card flex flex-col items-center relative z-10 text-center pointer-events-auto">
+            <div class="mb-6 drop-shadow-sm transform hover:scale-110 transition-transform duration-300">
+                <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M32 12C32 12 28 8 22 10C26 14 30 14 32 16C34 14 38 14 42 10C36 8 32 12 32 12Z" fill="#6E9A68"/>
+                    <path d="M32 14C32 14 30 6 34 4C34 8 33 12 32 14Z" fill="#6E9A68"/>
+                    <path d="M48 28C48 16 38 16 32 16C26 16 16 16 16 28C16 42 22 48 32 48C42 48 48 42 48 28Z" fill="#D94B43" stroke="#A93B33" stroke-width="2"/>
+                    <path d="M22 28C22 22 26 20 30 20" stroke="#E67B73" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <h1 class="text-[42px] font-semibold text-anki-red tracking-tight leading-none mb-4">
+                Pomodoro done!
+            </h1>
+
+            <p class="text-[15px] font-medium text-[#6B6661] mb-8">
+                14 cards <span class="mx-1 font-normal opacity-50">·</span> 94% retention <span class="mx-1 font-normal opacity-50">·</span> +70 ✨
+            </p>
+
+            <div class="flex items-center justify-center gap-1.5 mb-10">
+                <div class="w-[7px] h-[7px] rounded-full bg-anki-red shadow-sm"></div>
+                <div class="w-[7px] h-[7px] rounded-full bg-anki-red shadow-sm"></div>
+                <div class="w-[7px] h-[7px] rounded-full bg-anki-red shadow-sm"></div>
+                <div class="w-[7px] h-[7px] rounded-full bg-anki-red shadow-sm"></div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button id="btn-keep-going" type="button" class="cursor-pointer px-5 py-2.5 bg-[#FDFBF9] border border-[#DEDCD3] rounded-lg text-sm font-medium text-[#595752] hover:bg-white hover:shadow-sm hover:-translate-y-[1px] transition-all active:translate-y-0">
+                    Keep going
+                </button>
+                <button id="btn-take-break" type="button" class="cursor-pointer px-5 py-2.5 bg-anki-red border border-[#BE4239] rounded-lg text-sm font-medium text-white shadow-sm hover:bg-[#C23F38] hover:-translate-y-[1px] transition-all active:translate-y-0">
+                    Take 5-min break
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script xử lý các chức năng tương tác -->
+    <script>
+        // --- POMODORO TIMER ---
+        const pomodoroMinutesInput = document.getElementById('setting-pomodoro-minutes');
+        const breakMinutesInput = document.getElementById('setting-break-minutes');
+        const autoStartBreakInput = document.getElementById('setting-auto-start-break');
+        const pomodoroDoneModal = document.getElementById('pomodoro-done-modal');
+        const btnKeepGoing = document.getElementById('btn-keep-going');
+        const btnTakeBreak = document.getElementById('btn-take-break');
+        const timerDisplays = document.querySelectorAll('.timer-display');
+        const btnsPause = document.querySelectorAll('.btn-pause');
+        const btnsStop = document.querySelectorAll('.btn-stop');
+        const linearTimerProgresses = document.querySelectorAll('.timer-linear-progress');
+        const circularTimerProgresses = document.querySelectorAll('.timer-circular-progress');
+        const modeLabels = document.querySelectorAll('.mode-label');
+        const modeEmojis = document.querySelectorAll('.mode-emoji');
+        const modeAccentTexts = document.querySelectorAll('.mode-accent-text');
+        const modeAccentBackgrounds = document.querySelectorAll('.mode-accent-bg');
+        const modeAccentStrokes = document.querySelectorAll('.mode-accent-stroke');
+
+        const timerModes = {
+            pomodoro: {
+                label: 'Pomodoro',
+                emoji: '🍅',
+                accent: '#D94B43',
+                input: pomodoroMinutesInput,
+                fallbackMinutes: 25,
+                maxMinutes: 180,
+            },
+            break: {
+                label: 'Break Time',
+                emoji: '☕',
+                accent: '#739E73',
+                input: breakMinutesInput,
+                fallbackMinutes: 5,
+                maxMinutes: 60,
+            },
+        };
+
+        let currentMode = 'pomodoro';
+        let totalTime = getModeSeconds(currentMode);
+        let timeLeft = 8 * 60 + 13; // Bắt đầu ở 08:13 như hình mockup
+        let isPaused = true;
+        let timerInterval;
+
+        const circleCircumference = 2 * Math.PI * 16;
+
+        function readMinutes(mode) {
+            const config = timerModes[mode];
+            const value = Number(config.input.value);
+            const minutes = Math.max(1, Math.min(config.maxMinutes, value || config.fallbackMinutes));
+            config.input.value = minutes;
+            return minutes;
+        }
+
+        function getModeSeconds(mode) {
+            return readMinutes(mode) * 60;
+        }
+
+        function updateModeDisplay() {
+            const config = timerModes[currentMode];
+
+            modeLabels.forEach(label => {
+                label.textContent = config.label;
+            });
+
+            modeEmojis.forEach(emoji => {
+                emoji.textContent = config.emoji;
+            });
+
+            modeAccentTexts.forEach(element => {
+                element.style.color = config.accent;
+            });
+
+            modeAccentBackgrounds.forEach(element => {
+                element.style.backgroundColor = config.accent;
+            });
+
+            modeAccentStrokes.forEach(element => {
+                element.style.stroke = config.accent;
+            });
+        }
+
+        function setTimerMode(mode, resetTime = true) {
+            currentMode = mode;
+            totalTime = getModeSeconds(currentMode);
+
+            if (resetTime) {
+                timeLeft = totalTime;
+            }
+
+            updateModeDisplay();
+            updateTimerDisplay();
+        }
+
+        function switchToNextMode(resetTime = true) {
+            setTimerMode(currentMode === 'pomodoro' ? 'break' : 'pomodoro', resetTime);
+        }
+
+        function updateTakeBreakButtonLabel() {
+            btnTakeBreak.textContent = `Take ${readMinutes('break')}-min break`;
+        }
+
+        function showPomodoroDoneModal() {
+            isPaused = true;
+            setPauseIcons(isPaused);
+            updateTakeBreakButtonLabel();
+            pomodoroDoneModal.classList.remove('hidden');
+            pomodoroDoneModal.classList.add('flex');
+        }
+
+        function hidePomodoroDoneModal() {
+            pomodoroDoneModal.classList.add('hidden');
+            pomodoroDoneModal.classList.remove('flex');
+        }
+
+        function startMode(mode) {
+            hidePomodoroDoneModal();
+            setTimerMode(mode, true);
+            isPaused = false;
+            setPauseIcons(isPaused);
+        }
+
+        function handleTimerComplete() {
+            if (currentMode === 'pomodoro') {
+                if (autoStartBreakInput.checked) {
+                    switchToNextMode(true);
+                } else {
+                    showPomodoroDoneModal();
+                }
+                return;
+            }
+
+            switchToNextMode(true);
+        }
+
+        function setPauseIcons(paused) {
+            const nextIcon = paused ? 'ph-play' : 'ph-pause';
+            const previousIcon = paused ? 'ph-pause' : 'ph-play';
+
+            btnsPause.forEach(button => {
+                const icon = button.querySelector('i');
+                if (!icon) return;
+
+                icon.classList.remove(previousIcon);
+                icon.classList.add(nextIcon);
+            });
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+
+            timerDisplays.forEach(display => {
+                display.textContent = `${m}:${s}`;
+            });
+
+            // Timer progress is shared across all layouts and follows timeLeft / totalTime.
+            const percentage = Math.max(0, Math.min(1, timeLeft / totalTime));
+            const offset = circleCircumference - (percentage * circleCircumference);
+
+            linearTimerProgresses.forEach(progress => {
+                progress.style.width = `${percentage * 100}%`;
+            });
+
+            circularTimerProgresses.forEach(progress => {
+                progress.style.strokeDasharray = circleCircumference;
+                progress.style.strokeDashoffset = offset;
+            });
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (isPaused) return;
+
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateTimerDisplay();
+                }
+
+                if (timeLeft === 0) {
+                    handleTimerComplete();
+                }
+            }, 1000);
+        }
+
+        btnsPause.forEach(btn => {
+            btn.addEventListener('click', () => {
+                isPaused = !isPaused;
+                setPauseIcons(isPaused);
+            });
+        });
+
+        btnsStop.forEach(btn => {
+            btn.addEventListener('click', () => {
+                isPaused = true;
+                timeLeft = totalTime;
+                updateTimerDisplay();
+                setPauseIcons(isPaused);
+            });
+        });
+
+        pomodoroMinutesInput.addEventListener('change', () => {
+            readMinutes('pomodoro');
+
+            if (currentMode === 'pomodoro') {
+                setTimerMode('pomodoro', true);
+                isPaused = true;
+                setPauseIcons(isPaused);
+            }
+        });
+
+        breakMinutesInput.addEventListener('change', () => {
+            readMinutes('break');
+            updateTakeBreakButtonLabel();
+
+            if (currentMode === 'break') {
+                setTimerMode('break', true);
+                isPaused = true;
+                setPauseIcons(isPaused);
+            }
+        });
+
+        btnKeepGoing.addEventListener('click', () => {
+            startMode('pomodoro');
+        });
+
+        btnTakeBreak.addEventListener('click', () => {
+            startMode('break');
+        });
+
+        pomodoroDoneModal.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        updateModeDisplay();
+        updateTakeBreakButtonLabel();
+        setPauseIcons(isPaused);
+        updateTimerDisplay();
+        startTimer();
+
+        // --- CHỨC NĂNG CHUYỂN STYLE STATUS BAR ---
+        const settingStatusStyle = document.getElementById('setting-status-style');
+        const statusBarHorizontal = document.getElementById('status-bar-horizontal');
+        const statusBadgeCorner = document.getElementById('status-badge-corner');
+        const statusSidebar = document.getElementById('status-sidebar');
+
+        settingStatusStyle.addEventListener('change', (e) => {
+            const style = e.target.value;
+
+            // Reset tất cả
+            statusBarHorizontal.classList.add('hidden');
+            statusBarHorizontal.classList.remove('flex');
+
+            statusBadgeCorner.classList.add('hidden');
+            statusBadgeCorner.classList.remove('flex');
+
+            statusSidebar.classList.add('hidden');
+            statusSidebar.classList.remove('flex');
+
+            // Hiển thị style được chọn
+            if (style === 'sidebar') {
+                statusSidebar.classList.remove('hidden');
+                statusSidebar.classList.add('flex');
+            } else if (style === 'corner') {
+                statusBadgeCorner.classList.remove('hidden');
+                statusBadgeCorner.classList.add('flex');
+                applyCornerBadgePosition();
+            } else if (style === 'under') {
+                statusBarHorizontal.classList.remove('hidden');
+                statusBarHorizontal.classList.add('flex');
+            }
+        });
+
+        // --- DRAGGABLE CORNER BADGE ---
+        const cornerBadgeDragHandle = document.getElementById('corner-badge-drag-handle');
+        let cornerBadgePosition = null;
+        let cornerBadgeDragState = null;
+
+        function getCornerBadgeBounds() {
+            const parentRect = statusBadgeCorner.parentElement.getBoundingClientRect();
+            const badgeRect = statusBadgeCorner.getBoundingClientRect();
+            return {
+                parentRect,
+                badgeWidth: badgeRect.width || 210,
+                badgeHeight: badgeRect.height || 260,
+            };
+        }
+
+        function clampCornerBadgePosition(left, top) {
+            const { parentRect, badgeWidth, badgeHeight } = getCornerBadgeBounds();
+            return {
+                left: Math.min(Math.max(left, 16), parentRect.width - badgeWidth - 16),
+                top: Math.min(Math.max(top, 16), parentRect.height - badgeHeight - 16),
+            };
+        }
+
+        function applyCornerBadgePosition() {
+            if (!cornerBadgePosition) return;
+
+            const position = clampCornerBadgePosition(cornerBadgePosition.left, cornerBadgePosition.top);
+            cornerBadgePosition = position;
+            statusBadgeCorner.style.left = `${position.left}px`;
+            statusBadgeCorner.style.top = `${position.top}px`;
+            statusBadgeCorner.style.right = 'auto';
+        }
+
+        cornerBadgeDragHandle.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const { parentRect } = getCornerBadgeBounds();
+            const badgeRect = statusBadgeCorner.getBoundingClientRect();
+            cornerBadgeDragState = {
+                pointerId: e.pointerId,
+                offsetX: e.clientX - badgeRect.left,
+                offsetY: e.clientY - badgeRect.top,
+                parentLeft: parentRect.left,
+                parentTop: parentRect.top,
+            };
+
+            cornerBadgeDragHandle.setPointerCapture(e.pointerId);
+        });
+
+        cornerBadgeDragHandle.addEventListener('pointermove', (e) => {
+            if (!cornerBadgeDragState) return;
+
+            const nextLeft = e.clientX - cornerBadgeDragState.parentLeft - cornerBadgeDragState.offsetX;
+            const nextTop = e.clientY - cornerBadgeDragState.parentTop - cornerBadgeDragState.offsetY;
+            cornerBadgePosition = clampCornerBadgePosition(nextLeft, nextTop);
+            applyCornerBadgePosition();
+        });
+
+        function stopCornerBadgeDrag(e) {
+            if (!cornerBadgeDragState) return;
+
+            if (cornerBadgeDragHandle.hasPointerCapture(cornerBadgeDragState.pointerId)) {
+                cornerBadgeDragHandle.releasePointerCapture(cornerBadgeDragState.pointerId);
+            }
+            cornerBadgeDragState = null;
+            e.stopPropagation();
+        }
+
+        cornerBadgeDragHandle.addEventListener('pointerup', stopCornerBadgeDrag);
+        cornerBadgeDragHandle.addEventListener('pointercancel', stopCornerBadgeDrag);
+        window.addEventListener('resize', applyCornerBadgePosition);
+
+        // --- SESSION HISTORY ---
+        const appWindow = document.getElementById('app-window');
+        const sessionHistoryPopover = document.getElementById('session-history-popover');
+        const btnsSessionHistory = document.querySelectorAll('.btn-session-history');
+        const btnCloseSessionHistory = document.getElementById('btn-close-session-history');
+        const experiencePopover = document.getElementById('experience-popover');
+        const btnsExperienceDetails = document.querySelectorAll('.btn-experience-details');
+        const btnCloseExperience = document.getElementById('btn-close-experience');
+        const cardsPopover = document.getElementById('cards-popover');
+        const btnsCardsDetails = document.querySelectorAll('.btn-cards-details');
+        const btnCloseCards = document.getElementById('btn-close-cards');
+        const streakPopover = document.getElementById('streak-popover');
+        const btnsStreakDetails = document.querySelectorAll('.btn-streak-details');
+        const btnCloseStreak = document.getElementById('btn-close-streak');
+        const retentionPopover = document.getElementById('retention-popover');
+        const btnsRetentionDetails = document.querySelectorAll('.btn-retention-details');
+        const btnCloseRetention = document.getElementById('btn-close-retention');
+
+        function closePopover(popover) {
+            popover.classList.add('hidden');
+            popover.classList.remove('flex');
+        }
+
+        function positionPopover(popover, anchor) {
+            popover.classList.remove('hidden');
+            popover.classList.add('flex');
+
+            const appRect = appWindow.getBoundingClientRect();
+            const anchorRect = anchor.getBoundingClientRect();
+            const popoverWidth = popover.offsetWidth || 320;
+            const popoverHeight = popover.offsetHeight || 420;
+            const left = Math.min(
+                Math.max(anchorRect.left - appRect.left, 16),
+                appRect.width - popoverWidth - 16
+            );
+            const top = Math.min(
+                Math.max(anchorRect.bottom - appRect.top + 10, 16),
+                appRect.height - popoverHeight - 16
+            );
+
+            popover.style.left = `${left}px`;
+            popover.style.top = `${top}px`;
+        }
+
+        function closeSessionHistory() {
+            closePopover(sessionHistoryPopover);
+        }
+
+        function closeExperienceDetails() {
+            closePopover(experiencePopover);
+        }
+
+        function closeCardsDetails() {
+            closePopover(cardsPopover);
+        }
+
+        function closeStreakDetails() {
+            closePopover(streakPopover);
+        }
+
+        function closeRetentionDetails() {
+            closePopover(retentionPopover);
+        }
+
+        function closeMetricPopovers() {
+            closeSessionHistory();
+            closeExperienceDetails();
+            closeCardsDetails();
+            closeStreakDetails();
+            closeRetentionDetails();
+        }
+
+        function openSessionHistory(anchor) {
+            closeMetricPopovers();
+            positionPopover(sessionHistoryPopover, anchor);
+        }
+
+        function openExperienceDetails(anchor) {
+            closeMetricPopovers();
+            positionPopover(experiencePopover, anchor);
+        }
+
+        function openCardsDetails(anchor) {
+            closeMetricPopovers();
+            positionPopover(cardsPopover, anchor);
+        }
+
+        function openStreakDetails(anchor) {
+            closeMetricPopovers();
+            positionPopover(streakPopover, anchor);
+        }
+
+        function openRetentionDetails(anchor) {
+            closeMetricPopovers();
+            positionPopover(retentionPopover, anchor);
+        }
+
+        btnsSessionHistory.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = sessionHistoryPopover.classList.contains('hidden');
+                if (isHidden) {
+                    openSessionHistory(btn);
+                } else {
+                    closeSessionHistory();
+                }
+            });
+        });
+
+        btnsExperienceDetails.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = experiencePopover.classList.contains('hidden');
+                if (isHidden) {
+                    openExperienceDetails(btn);
+                } else {
+                    closeExperienceDetails();
+                }
+            });
+        });
+
+        btnsCardsDetails.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = cardsPopover.classList.contains('hidden');
+                if (isHidden) {
+                    openCardsDetails(btn);
+                } else {
+                    closeCardsDetails();
+                }
+            });
+        });
+
+        btnsStreakDetails.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = streakPopover.classList.contains('hidden');
+                if (isHidden) {
+                    openStreakDetails(btn);
+                } else {
+                    closeStreakDetails();
+                }
+            });
+        });
+
+        btnsRetentionDetails.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = retentionPopover.classList.contains('hidden');
+                if (isHidden) {
+                    openRetentionDetails(btn);
+                } else {
+                    closeRetentionDetails();
+                }
+            });
+        });
+
+        sessionHistoryPopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        experiencePopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        cardsPopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        streakPopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        retentionPopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        btnCloseSessionHistory.addEventListener('click', closeSessionHistory);
+        btnCloseExperience.addEventListener('click', closeExperienceDetails);
+        btnCloseCards.addEventListener('click', closeCardsDetails);
+        btnCloseStreak.addEventListener('click', closeStreakDetails);
+        btnCloseRetention.addEventListener('click', closeRetentionDetails);
+
+        // --- CHỨC NĂNG AUDIO WIDGET ---
+        const btnsAudio = document.querySelectorAll('.btn-audio');
+        const btnAudioCorner = document.getElementById('btn-audio-corner');
+        const audioWidget = document.getElementById('audio-widget');
+        const cornerAudioSection = document.getElementById('corner-audio-section');
+        const audioPreset = document.getElementById('audio-preset');
+        const audioTitle = document.getElementById('audio-title');
+        const audioSource = document.getElementById('audio-source');
+        const youtubeUrlInput = document.getElementById('youtube-url-input');
+        const btnLoadYoutube = document.getElementById('btn-load-youtube');
+        const youtubeStatus = document.getElementById('youtube-status');
+        const youtubePreview = document.getElementById('youtube-preview');
+        const youtubePlayer = document.getElementById('youtube-player');
+        const cornerYoutubeUrlInput = document.getElementById('corner-youtube-url-input');
+        const btnLoadCornerYoutube = document.getElementById('btn-load-corner-youtube');
+        const cornerYoutubeStatus = document.getElementById('corner-youtube-status');
+        const cornerYoutubePreview = document.getElementById('corner-youtube-preview');
+        const cornerYoutubePlayer = document.getElementById('corner-youtube-player');
+        const btnsAudioPlay = document.querySelectorAll('.btn-audio-play');
+        const btnsLoopToggle = document.querySelectorAll('.btn-loop-toggle');
+        let isAudioPlaying = false;
+        let isLoopEnabled = false;
+
+        function setAudioPlayingState(playing) {
+            isAudioPlaying = playing;
+
+            btnsAudioPlay.forEach(button => {
+                const icon = button.querySelector('i');
+                button.classList.toggle('is-playing', playing);
+                button.setAttribute('aria-pressed', String(playing));
+
+                if (!icon) return;
+                icon.classList.toggle('ph-play', !playing);
+                icon.classList.toggle('ph-pause', playing);
+                icon.classList.toggle('ml-0.5', !playing);
+            });
+        }
+
+        function setLoopState(enabled) {
+            isLoopEnabled = enabled;
+
+            btnsLoopToggle.forEach(button => {
+                button.classList.toggle('is-active', enabled);
+                button.setAttribute('aria-pressed', String(enabled));
+            });
+        }
+
+        function getYoutubeVideoId(rawUrl) {
+            const value = rawUrl.trim();
+            if (!value) return null;
+
+            try {
+                const url = new URL(value);
+                const host = url.hostname.replace('www.', '');
+
+                if (host === 'youtu.be') {
+                    return url.pathname.split('/').filter(Boolean)[0] || null;
+                }
+
+                if (host.endsWith('youtube.com')) {
+                    if (url.pathname === '/watch') return url.searchParams.get('v');
+
+                    const parts = url.pathname.split('/').filter(Boolean);
+                    if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1] || null;
+                }
+            } catch {
+                const match = value.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+                return match ? match[1] : null;
+            }
+
+            return null;
+        }
+
+        function setYoutubeStatus(statusElement, message, isError = false) {
+            statusElement.textContent = message;
+            statusElement.classList.toggle('text-anki-red', isError);
+            statusElement.classList.toggle('text-anki-textMuted', !isError);
+        }
+
+        function loadYoutubeAudio(input, statusElement, previewElement, playerElement) {
+            const videoId = getYoutubeVideoId(input.value);
+
+            if (!videoId) {
+                setYoutubeStatus(statusElement, 'Link YouTube không hợp lệ.', true);
+                return;
+            }
+
+            playerElement.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+            previewElement.classList.remove('hidden');
+            audioTitle.textContent = 'YouTube Focus Audio';
+            audioSource.textContent = 'Custom YouTube Link';
+            setYoutubeStatus(statusElement, 'Đã load YouTube link.', false);
+            setAudioPlayingState(true);
+        }
+
+        audioPreset.addEventListener('change', () => {
+            const selected = audioPreset.selectedOptions[0];
+            audioTitle.textContent = selected.dataset.title;
+            audioSource.textContent = selected.dataset.source;
+            youtubePlayer.removeAttribute('src');
+            youtubePreview.classList.add('hidden');
+            setYoutubeStatus(youtubeStatus, 'Đang dùng âm thanh có sẵn.', false);
+        });
+
+        btnLoadYoutube.addEventListener('click', () => {
+            loadYoutubeAudio(youtubeUrlInput, youtubeStatus, youtubePreview, youtubePlayer);
+        });
+
+        youtubeUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                loadYoutubeAudio(youtubeUrlInput, youtubeStatus, youtubePreview, youtubePlayer);
+            }
+        });
+
+        btnLoadCornerYoutube.addEventListener('click', () => {
+            loadYoutubeAudio(cornerYoutubeUrlInput, cornerYoutubeStatus, cornerYoutubePreview, cornerYoutubePlayer);
+        });
+
+        cornerYoutubeUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                loadYoutubeAudio(cornerYoutubeUrlInput, cornerYoutubeStatus, cornerYoutubePreview, cornerYoutubePlayer);
+            }
+        });
+
+        btnsAudioPlay.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setAudioPlayingState(!isAudioPlaying);
+            });
+        });
+
+        btnsLoopToggle.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setLoopState(!isLoopEnabled);
+            });
+        });
+
+        // Toggle Floating Widget cho các nút thông thường
+        btnsAudio.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = audioWidget.classList.contains('hidden');
+                if (isHidden) {
+                    audioWidget.classList.remove('hidden');
+                    audioWidget.classList.add('flex');
+                } else {
+                    audioWidget.classList.add('hidden');
+                    audioWidget.classList.remove('flex');
+                }
+            });
+        });
+
+        // Toggle Expand Audio cho Corner Badge
+        if (btnAudioCorner) {
+            btnAudioCorner.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = cornerAudioSection.classList.contains('hidden');
+                if (isHidden) {
+                    cornerAudioSection.classList.remove('hidden');
+                    cornerAudioSection.classList.add('flex');
+                } else {
+                    cornerAudioSection.classList.add('hidden');
+                    cornerAudioSection.classList.remove('flex');
+                }
+            });
+        }
+
+        // Đóng widget nổi khi click ra ngoài
+        document.addEventListener('click', (e) => {
+            let isClickInsideBtn = Array.from(btnsAudio).some(btn => btn.contains(e.target));
+            if (!audioWidget.contains(e.target) && !isClickInsideBtn) {
+                audioWidget.classList.add('hidden');
+                audioWidget.classList.remove('flex');
+            }
+            closeSessionHistory();
+            closeExperienceDetails();
+            closeCardsDetails();
+            closeStreakDetails();
+            closeRetentionDetails();
+        });
+
+        // --- CHỨC NĂNG SETTINGS MODAL ---
+        const modal = document.getElementById('settings-modal');
+        const btnsSettings = document.querySelectorAll('.btn-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+
+        btnsSettings.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            });
+        });
+
+        btnCloseSettings.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        });
+    </script>
+</body>
+</html>

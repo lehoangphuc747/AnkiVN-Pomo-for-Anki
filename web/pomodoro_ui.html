@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="{{html_lang}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+/*__POMODORO_CSS__*/
+  </style>
+</head>
+<body>
+  <section id="corner-badge" class="corner-badge" aria-label="{{corner_aria}}">
+    <div id="drag-handle" class="drag-handle" title="{{tooltip_drag_corner}}">
+      <span></span>
+    </div>
+
+    <div class="timer-row">
+      <div class="ring" aria-hidden="true">
+        <svg viewBox="0 0 36 36">
+          <circle class="ring-bg" cx="18" cy="18" r="16"></circle>
+          <circle id="ring-progress" class="ring-progress" cx="18" cy="18" r="16"></circle>
+        </svg>
+      </div>
+      <div class="timer-copy">
+        <div id="mode-label" class="mode-label"><span id="mode-emoji">&#127813;</span> <span id="mode-text">{{mode_pomodoro}}</span></div>
+        <div id="timer-text" class="timer-text">25:00</div>
+      </div>
+    </div>
+
+    <div class="soft-divider"></div>
+
+    <button class="session-row" data-action="session" type="button">
+      <span id="session-pips" class="pips" aria-hidden="true">
+        <i class="done active"></i><i></i><i></i><i></i>
+      </span>
+      <span id="session-text">1 / 4</span>
+    </button>
+
+    <div class="xp-block">
+      <div class="xp-row">
+        <button id="experience-button" data-action="experience" type="button" class="text-button"><strong>{{level_short}} 1</strong> 0/20</button>
+        <button id="cards-button" data-action="cards" type="button" class="text-button red">&#9889; <span>+0</span></button>
+      </div>
+      <div class="mini-progress"><span id="xp-progress"></span></div>
+    </div>
+
+    <div class="controls">
+      <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}">&#9654;</button>
+      <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden>&#9632;</button>
+      <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}">&#9834;</button>
+      <button data-action="settings" type="button" title="{{tooltip_settings}}">&#9881;</button>
+    </div>
+
+    <div id="inline-audio" class="inline-audio" aria-hidden="true">
+      <div class="audio-track">
+        <div class="album">&#9834;</div>
+        <div class="track-copy">
+          <strong>{{audio_title_lofi}}</strong>
+          <span>{{audio_source_chillhop}}</span>
+        </div>
+      </div>
+      <div class="mini-progress audio-progress"><span></span></div>
+      <div class="audio-controls">
+        <button type="button">&#9198;</button>
+        <button id="audio-play-button" type="button" class="play">&#9654;</button>
+        <button type="button">&#9197;</button>
+        <button type="button">&#8635;</button>
+      </div>
+      <div class="youtube-row">
+        <input type="url" placeholder="{{audio_youtube_placeholder}}">
+        <button type="button">{{action_load}}</button>
+      </div>
+      <p>{{audio_inline_support}}</p>
+    </div>
+
+    <button id="streak-button" data-action="streak" type="button" class="footer-row">&#128293; <span>{{streak_initial}}</span></button>
+  </section>
+
+  <script>
+//__POMODORO_JS__
+  </script>
+</body>
+</html>

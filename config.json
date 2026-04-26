@@ -1,0 +1,8 @@
+{
+  "layout": "under",
+  "pomodoro_minutes": 25,
+  "break_minutes": 5,
+  "auto_start_break": true,
+  "corner_left": null,
+  "corner_top": null
+}

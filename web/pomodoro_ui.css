@@ -1,0 +1,391 @@
+:root {
+  --anki-window: #fcfbf9;
+  --anki-border: #e8e6e0;
+  --anki-text: #3e3c38;
+  --anki-muted: #8c8a84;
+  --anki-muted-light: #a6a39c;
+  --anki-red: #d94b43;
+  --anki-red-dark: #c23f38;
+  --anki-red-light: #fef6f5;
+  --anki-green: #739e73;
+  --anki-soft: #f2f1ec;
+  --anki-badge-footer: #f5efe6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--anki-text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  user-select: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.corner-badge {
+  width: 210px;
+  margin: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--anki-window);
+  border: 1px solid var(--anki-border);
+  border-radius: 24px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.drag-handle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 13px;
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle span {
+  width: 32px;
+  height: 4px;
+  border-radius: 999px;
+  background: #e0ded5;
+}
+
+.timer-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 4px 16px;
+}
+
+.ring {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 auto;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+}
+
+.ring-bg {
+  stroke: #efece5;
+  stroke-width: 3;
+}
+
+.ring-progress {
+  stroke: var(--anki-red);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100.53;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.35s linear, stroke 0.2s ease;
+}
+
+.timer-copy {
+  min-width: 0;
+}
+
+.mode-label {
+  margin-bottom: 7px;
+  color: var(--anki-muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+}
+
+.timer-text {
+  color: var(--anki-red);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.soft-divider {
+  height: 1px;
+  margin-bottom: 15px;
+  background: linear-gradient(90deg, transparent, var(--anki-border), transparent);
+}
+
+.session-row,
+.footer-row,
+.text-button,
+.controls button,
+.audio-controls button,
+.youtube-row button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.session-row {
+  width: 100%;
+  min-height: 26px;
+  margin-bottom: 12px;
+  padding: 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  color: var(--anki-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.session-row:hover,
+.text-button:hover,
+.controls button:hover,
+.audio-controls button:hover {
+  background: var(--anki-soft);
+}
+
+.session-row:hover {
+  border-radius: 12px;
+}
+
+.text-button:hover,
+.controls button:hover,
+.audio-controls button:hover {
+  border-radius: 8px;
+}
+
+.pips {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pips i {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid #d9d7d2;
+  border-radius: 50%;
+  background: var(--anki-soft);
+}
+
+.pips i.done {
+  border-color: var(--anki-red);
+  background: var(--anki-red);
+}
+
+.pips i.active {
+  box-shadow: 0 0 0 3px rgba(217, 75, 67, 0.15);
+}
+
+.xp-block {
+  margin: 0 4px 18px;
+}
+
+.xp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.text-button {
+  padding: 2px 4px;
+  border-radius: 8px;
+  color: var(--anki-muted-light);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.text-button strong {
+  color: var(--anki-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.text-button.red {
+  color: var(--anki-red);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mini-progress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--anki-border);
+}
+
+.mini-progress span {
+  display: block;
+  height: 100%;
+  width: 30%;
+  border-radius: inherit;
+  background: var(--anki-red);
+  transition: width 0.25s ease, background 0.2s ease;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 4px 17px;
+}
+
+.controls button,
+.audio-controls button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #595752;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+#audio-button {
+  color: var(--anki-green);
+  font-size: 17px;
+}
+
+.inline-audio {
+  display: none;
+  padding: 16px 0 10px;
+  margin-bottom: 10px;
+  border-top: 1px solid var(--anki-border);
+}
+
+.corner-badge.audio-open .inline-audio {
+  display: block;
+}
+
+.audio-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.album {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--anki-border);
+  border-radius: 6px;
+  background: #f5f4f0;
+  color: #c8c6bf;
+  font-size: 20px;
+}
+
+.track-copy {
+  min-width: 0;
+}
+
+.track-copy strong,
+.track-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.track-copy span,
+.inline-audio p {
+  color: var(--anki-muted);
+  font-size: 10px;
+}
+
+.audio-progress {
+  margin-bottom: 11px;
+}
+
+.audio-progress span {
+  width: 45%;
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 4px 12px;
+}
+
+.audio-controls .play {
+  background: var(--anki-red);
+  color: white;
+  border-radius: 50%;
+}
+
+.youtube-row {
+  display: flex;
+  gap: 6px;
+}
+
+.youtube-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--anki-border);
+  border-radius: 8px;
+  outline: 0;
+  color: var(--anki-text);
+  font-size: 10px;
+}
+
+.youtube-row button {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--anki-red);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.inline-audio p {
+  margin: 6px 0 0;
+}
+
+.footer-row {
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--anki-badge-footer);
+  color: var(--anki-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.footer-row:hover {
+  background: #efe8dc;
+  border-radius: 14px;
+}
