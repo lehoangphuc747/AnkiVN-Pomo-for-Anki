@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -22,6 +22,7 @@ class PomodoroSettings:
     pomodoro_minutes: int = 25
     break_minutes: int = 5
     auto_start_break: bool = True
+    auto_start_pomodoro_after_break: bool = False
     language: str = "vi"
     corner_left: Optional[int] = None
     corner_top: Optional[int] = None
@@ -38,6 +39,7 @@ class PomodoroSettings:
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
             auto_start_break=bool(config.get("auto_start_break", True)),
+            auto_start_pomodoro_after_break=bool(config.get("auto_start_pomodoro_after_break", False)),
             language=language,
             corner_left=_optional_int(config.get("corner_left")),
             corner_top=_optional_int(config.get("corner_top")),
@@ -49,6 +51,7 @@ class PomodoroSettings:
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
             "auto_start_break": self.auto_start_break,
+            "auto_start_pomodoro_after_break": self.auto_start_pomodoro_after_break,
             "language": self.language,
             "corner_left": self.corner_left,
             "corner_top": self.corner_top,
@@ -122,14 +125,6 @@ class TimerRuntimeState:
         }
 
 
-@dataclass(frozen=True)
-class DailyActivity:
-    label: str
-    date: str
-    cards: int = 0
-    xp: int = 0
-
-
 @dataclass
 class StudySessionState:
     id: str
@@ -157,7 +152,7 @@ class StudySessionState:
             id=str(data.get("id") or ""),
             started_at=str(data.get("started_at") or ""),
             updated_at=str(data.get("updated_at") or ""),
-            session_index=_clamp_int(data.get("session_index"), 1, 1, 4),
+            session_index=_positive_int(data.get("session_index")),
             session_total=_clamp_int(data.get("session_total"), 4, 1, 12),
             xp_current=_clamp_int(data.get("xp_current"), 0, 0, 1_000_000),
             xp_goal=_clamp_int(data.get("xp_goal"), 20, 1, 1_000_000),
@@ -185,7 +180,11 @@ class StudySessionState:
         longest_streak_days: int = 0,
         today_cards: int = 0,
         today_xp: int = 0,
-        week_activity: tuple[DailyActivity, ...] = (),
+        streak_start_date: str = "",
+        today_reviews: int = 0,
+        yesterday_reviews: int = 0,
+        cutoff_hour: int = 4,
+        seconds_until_cutoff: int = 0,
         total_xp: int = 0,
         level: int = 1,
         level_floor_xp: int = 0,
@@ -202,7 +201,10 @@ class StudySessionState:
             retention=self.retention,
             streak_days=streak_days,
             new_cards=self.new_cards,
+            learning_cards=self.new_cards,
             review_cards=self.review_cards,
+            relearning_cards=0,
+            filtered_cards=0,
             again_cards=self.again_cards,
             hard_cards=self.hard_cards,
             good_cards=self.good_cards,
@@ -210,7 +212,13 @@ class StudySessionState:
             longest_streak_days=longest_streak_days,
             today_cards=today_cards,
             today_xp=today_xp,
-            week_activity=week_activity,
+            streak_start_date=streak_start_date,
+            today_reviews=today_reviews,
+            yesterday_reviews=yesterday_reviews,
+            cutoff_hour=cutoff_hour,
+            seconds_until_cutoff=seconds_until_cutoff,
+            session_cards=self.cards,
+            session_retention=self.retention,
             session_xp=self.xp_current,
             total_xp=total_xp,
             level=level,
@@ -262,7 +270,7 @@ class SessionHistoryEntry:
         mode = MODE_BREAK if data.get("mode") == MODE_BREAK else MODE_POMODORO
         return cls(
             mode=mode,
-            session_index=_clamp_int(data.get("session_index"), 1, 1, 12),
+            session_index=_positive_int(data.get("session_index")),
             session_total=_clamp_int(data.get("session_total"), 4, 1, 12),
             started_at=str(data.get("started_at") or ""),
             ended_at=str(data.get("ended_at") or ""),
@@ -323,7 +331,10 @@ class SessionMetrics:
     retention: int = 0
     streak_days: int = 0
     new_cards: int = 0
+    learning_cards: int = 0
     review_cards: int = 0
+    relearning_cards: int = 0
+    filtered_cards: int = 0
     again_cards: int = 0
     hard_cards: int = 0
     good_cards: int = 0
@@ -331,7 +342,13 @@ class SessionMetrics:
     longest_streak_days: int = 0
     today_cards: int = 0
     today_xp: int = 0
-    week_activity: tuple[DailyActivity, ...] = field(default_factory=tuple)
+    streak_start_date: str = ""
+    today_reviews: int = 0
+    yesterday_reviews: int = 0
+    cutoff_hour: int = 4
+    seconds_until_cutoff: int = 0
+    session_cards: int = 0
+    session_retention: int = 0
     session_xp: int = 0
     total_xp: int = 0
     level: int = 1
@@ -347,6 +364,14 @@ def _clamp_int(value: object, fallback: int, minimum: int, maximum: int) -> int:
     except (TypeError, ValueError):
         parsed = fallback
     return max(minimum, min(maximum, parsed))
+
+
+def _positive_int(value: object, fallback: int = 1) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = fallback
+    return max(1, parsed)
 
 
 def _optional_int(value: object) -> Optional[int]:

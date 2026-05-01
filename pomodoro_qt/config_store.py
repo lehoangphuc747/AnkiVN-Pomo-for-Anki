@@ -14,6 +14,7 @@ class ConfigStore:
     def __init__(self, mw: Any, addon_package: str) -> None:
         self._mw = mw
         self._addon_package = addon_package
+        self.last_error: Exception | None = None
 
     def load(self) -> PomodoroSettings:
         config = DEFAULT_CONFIG.copy()
@@ -21,12 +22,15 @@ class ConfigStore:
             stored = self._mw.addonManager.getConfig(self._addon_package) or {}
             if isinstance(stored, dict):
                 config.update(stored)
-        except Exception:
-            pass
+        except Exception as exc:
+            self.last_error = exc
         return PomodoroSettings.from_config(config)
 
-    def save(self, settings: PomodoroSettings) -> None:
+    def save(self, settings: PomodoroSettings) -> bool:
         try:
             self._mw.addonManager.writeConfig(self._addon_package, settings.to_config())
-        except Exception:
-            pass
+        except Exception as exc:
+            self.last_error = exc
+            return False
+        self.last_error = None
+        return True

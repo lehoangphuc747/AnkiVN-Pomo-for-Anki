@@ -1,7 +1,6 @@
 (function () {
   const root = document.getElementById("corner-badge");
   const dragHandle = document.getElementById("drag-handle");
-  const modeEmoji = document.getElementById("mode-emoji");
   const modeText = document.getElementById("mode-text");
   const timerText = document.getElementById("timer-text");
   const ringProgress = document.getElementById("ring-progress");
@@ -9,13 +8,20 @@
   const stopButton = document.getElementById("stop-button");
   const sessionText = document.getElementById("session-text");
   const experienceButton = document.getElementById("experience-button");
+  const experienceLevel = document.getElementById("experience-level");
+  const experienceXp = document.getElementById("experience-xp");
   const cardsButton = document.getElementById("cards-button");
+  const cardsCount = document.getElementById("cards-count");
   const xpProgress = document.getElementById("xp-progress");
   const streakButton = document.getElementById("streak-button");
+  const streakText = document.getElementById("streak-text");
+  const streakCaption = document.getElementById("streak-caption");
   const audioButton = document.getElementById("audio-button");
+  const audioPlayButton = document.getElementById("audio-play-button");
 
   let dragStart = null;
   let audioOpen = false;
+  let audioPlaying = false;
   const circumference = 2 * Math.PI * 16;
 
   function send(type, payload) {
@@ -44,21 +50,29 @@
       const offset = circumference - progress * circumference;
 
       setAccent(state.accent || "#D94B43");
-      modeEmoji.textContent = state.mode === "break" ? "\u2615" : "\ud83c\udf45";
       modeText.textContent = state.label || labels.pomodoro || "Pomodoro";
       timerText.textContent = state.timeText || "25:00";
       ringProgress.style.strokeDasharray = String(circumference);
       ringProgress.style.strokeDashoffset = String(offset);
-      pauseButton.textContent = state.paused ? "\u25b6" : "\u23f8";
+      pauseButton.innerHTML = state.paused
+        ? `<img src="${pauseButton.dataset.playSrc}" alt="" class="control-icon" />`
+        : `<img src="${pauseButton.dataset.pauseSrc}" alt="" class="control-icon" />`;
       stopButton.hidden = !Boolean(state.started);
 
-      sessionText.textContent = `${metrics.sessionIndex || 1} / ${metrics.sessionTotal || 4}`;
-      experienceButton.innerHTML = `<strong>${labels.levelShort || "Lv"} ${metrics.level || 1}</strong> ${metrics.totalXp || 0}/${metrics.nextLevelXp || 20}`;
-      cardsButton.innerHTML = `\u26a1 <span>+${metrics.cards || 0}</span>`;
-      streakButton.innerHTML = `\ud83d\udd25 <span>${state.streakText || `${metrics.streakDays || 0}d`}</span>`;
-      xpProgress.style.width = `${Math.max(0, Math.min(100, metrics.levelProgress || 0))}%`;
+      sessionText.textContent = `${labels.pomodoro || "Pomodoro"} ${safeNumber(metrics.sessionIndex, 1)}`;
+      experienceLevel.textContent = `${labels.levelShort || "Lv"} ${safeNumber(metrics.level, 1)}`;
+      experienceXp.textContent = `${safeNumber(metrics.totalXp, 0)} / ${safeNumber(metrics.nextLevelXp, 20)} XP`;
+      cardsCount.textContent = `+${safeNumber(metrics.cards, 0)}`;
+      streakText.textContent = state.streakText || `${safeNumber(metrics.streakDays, 0)}d`;
+      streakCaption.textContent = state.streakCaption || labels.streakCaption || "";
+      xpProgress.style.width = `${Math.max(0, Math.min(100, safeNumber(metrics.levelProgress, 0)))}%`;
     }
   };
+
+  function safeNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
 
   dragHandle.addEventListener("pointerdown", (event) => {
     event.preventDefault();
@@ -102,6 +116,15 @@
       action(name);
     });
   });
+
+  if (audioPlayButton) {
+    audioPlayButton.addEventListener("click", () => {
+      audioPlaying = !audioPlaying;
+      const icon = audioPlaying ? audioPlayButton.dataset.pauseSrc : audioPlayButton.dataset.playSrc;
+      audioPlayButton.innerHTML = `<img src="${icon}" alt="" class="audio-control-icon play-icon" />`;
+      audioPlayButton.setAttribute("aria-pressed", String(audioPlaying));
+    });
+  }
 
   send("ready");
 })();

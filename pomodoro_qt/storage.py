@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ class PomodoroDataStore:
         self._mw = mw
         self._addon_package = addon_package
         self.path = self._resolve_path()
+        self.last_error: Exception | None = None
 
     def load(self) -> dict:
         state = default_state()
@@ -44,12 +46,14 @@ class PomodoroDataStore:
             if isinstance(stored, dict):
                 state["_loaded_version"] = stored.get("version", 0)
                 state.update(stored)
-        except Exception:
+        except Exception as exc:
+            self.last_error = exc
+            self._log_error("load", exc)
             return state
         state["version"] = STATE_VERSION
         return state
 
-    def save(self, state: dict) -> None:
+    def save(self, state: dict) -> bool:
         payload = default_state()
         if isinstance(state, dict):
             payload.update(state)
@@ -60,6 +64,20 @@ class PomodoroDataStore:
             with tmp_path.open("w", encoding="utf-8") as handle:
                 json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
             tmp_path.replace(self.path)
+        except Exception as exc:
+            self.last_error = exc
+            self._log_error("save", exc)
+            return False
+        self.last_error = None
+        return True
+
+    def _log_error(self, action: str, exc: Exception) -> None:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            log_path = self.path.with_name("pomodoro_qt.log")
+            timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(f"{timestamp} storage.{action}: {type(exc).__name__}: {exc}\n")
         except Exception:
             pass
 

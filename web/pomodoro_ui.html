@@ -21,7 +21,7 @@
         </svg>
       </div>
       <div class="timer-copy">
-        <div id="mode-label" class="mode-label"><span id="mode-emoji">&#127813;</span> <span id="mode-text">{{mode_pomodoro}}</span></div>
+        <div id="mode-label" class="mode-label"><img src="{{tomato_icon_src}}" alt="" class="brand-logo" /><span id="mode-text">{{mode_pomodoro}}</span></div>
         <div id="timer-text" class="timer-text">25:00</div>
       </div>
     </div>
@@ -29,25 +29,31 @@
     <div class="soft-divider"></div>
 
     <button class="session-row" data-action="session" type="button">
-      <span id="session-pips" class="pips" aria-hidden="true">
-        <i class="done active"></i><i></i><i></i><i></i>
-      </span>
-      <span id="session-text">1 / 4</span>
+      <span id="session-text">{{mode_pomodoro}} 1</span>
     </button>
 
     <div class="xp-block">
       <div class="xp-row">
-        <button id="experience-button" data-action="experience" type="button" class="text-button"><strong>{{level_short}} 1</strong> 0/20</button>
-        <button id="cards-button" data-action="cards" type="button" class="text-button red">&#9889; <span>+0</span></button>
+        <button id="experience-button" data-action="experience" type="button" class="text-button">
+          <img id="experience-icon" src="{{growth_icon_src}}" alt="" class="metric-icon" />
+          <span class="experience-copy">
+            <strong id="experience-level">{{level_short}} 1</strong>
+            <span id="experience-xp">0 / 20 XP</span>
+          </span>
+        </button>
+        <button id="cards-button" data-action="cards" type="button" class="text-button red">
+          <img id="cards-icon" src="{{bolt_icon_src}}" alt="" class="metric-icon" />
+          <span id="cards-count">+0</span>
+        </button>
       </div>
       <div class="mini-progress"><span id="xp-progress"></span></div>
     </div>
 
     <div class="controls">
-      <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}">&#9654;</button>
-      <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden>&#9632;</button>
-      <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}">&#9834;</button>
-      <button data-action="settings" type="button" title="{{tooltip_settings}}">&#9881;</button>
+      <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="control-icon" /></button>
+      <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden><img src="{{stop_icon_src}}" alt="" class="control-icon" /></button>
+      <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}"><img src="{{soundcloud_icon_src}}" alt="" class="control-icon" /></button>
+      <button data-action="settings" type="button" title="{{tooltip_settings}}"><img src="{{settings_icon_src}}" alt="" class="control-icon" /></button>
     </div>
 
     <div id="inline-audio" class="inline-audio" aria-hidden="true">
@@ -60,10 +66,11 @@
       </div>
       <div class="mini-progress audio-progress"><span></span></div>
       <div class="audio-controls">
-        <button type="button">&#9198;</button>
-        <button id="audio-play-button" type="button" class="play">&#9654;</button>
-        <button type="button">&#9197;</button>
-        <button type="button">&#8635;</button>
+        <button type="button" title="{{action_shuffle}}"><img src="{{shuffle_icon_src}}" alt="" class="audio-control-icon" /></button>
+        <button type="button" title="{{action_previous}}"><img src="{{previous_icon_src}}" alt="" class="audio-control-icon" /></button>
+        <button id="audio-play-button" type="button" class="play" title="{{action_play}}" aria-pressed="false" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="audio-control-icon play-icon" /></button>
+        <button type="button" title="{{action_next}}"><img src="{{next_icon_src}}" alt="" class="audio-control-icon" /></button>
+        <button type="button" title="{{action_loop}}"><img src="{{loop_icon_src}}" alt="" class="audio-control-icon" /></button>
       </div>
       <div class="youtube-row">
         <input type="url" placeholder="{{audio_youtube_placeholder}}">
@@ -72,7 +79,13 @@
       <p>{{audio_inline_support}}</p>
     </div>
 
-    <button id="streak-button" data-action="streak" type="button" class="footer-row">&#128293; <span>{{streak_initial}}</span></button>
+    <button id="streak-button" data-action="streak" type="button" class="footer-row">
+      <span class="streak-flame"><img src="{{fire_icon_src}}" alt="" class="metric-icon" /></span>
+      <span class="streak-copy">
+        <strong id="streak-text">{{streak_initial}}</strong>
+        <span id="streak-caption">{{streak_caption_initial}}</span>
+      </span>
+    </button>
   </section>
 
   <script>

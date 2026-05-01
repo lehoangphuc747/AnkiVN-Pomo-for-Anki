@@ -12,7 +12,7 @@ from .storage import STATE_VERSION, default_state
 
 
 BACKUP_KIND = "pomodoro_qt_backup"
-BACKUP_VERSION = 1
+BACKUP_VERSION = 2
 
 
 class BackupError(ValueError):
@@ -21,13 +21,14 @@ class BackupError(ValueError):
         self.key = key
 
 
-def build_backup(settings: PomodoroSettings, state: dict[str, Any]) -> dict[str, Any]:
+def build_backup(settings: PomodoroSettings, state: dict[str, Any], analytics: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "kind": BACKUP_KIND,
         "version": BACKUP_VERSION,
         "exported_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "settings": settings.to_config(),
         "state": _normalized_state(state),
+        "analytics": _normalized_analytics(analytics),
     }
 
 
@@ -38,7 +39,7 @@ def write_backup(path: str | Path, payload: dict[str, Any]) -> None:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def read_backup(path: str | Path) -> tuple[PomodoroSettings, dict[str, Any]]:
+def read_backup(path: str | Path) -> tuple[PomodoroSettings, dict[str, Any], dict[str, Any]]:
     try:
         with Path(path).open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -47,12 +48,13 @@ def read_backup(path: str | Path) -> tuple[PomodoroSettings, dict[str, Any]]:
     return parse_backup(payload)
 
 
-def parse_backup(payload: object) -> tuple[PomodoroSettings, dict[str, Any]]:
+def parse_backup(payload: object) -> tuple[PomodoroSettings, dict[str, Any], dict[str, Any]]:
     if not isinstance(payload, dict):
         raise BackupError("backup.error.invalid_format")
     if payload.get("kind") != BACKUP_KIND:
         raise BackupError("backup.error.invalid_format")
-    if payload.get("version") != BACKUP_VERSION:
+    version = payload.get("version")
+    if version not in {1, BACKUP_VERSION}:
         raise BackupError("backup.error.unsupported_version")
 
     raw_settings = payload.get("settings")
@@ -60,7 +62,8 @@ def parse_backup(payload: object) -> tuple[PomodoroSettings, dict[str, Any]]:
     if not isinstance(raw_settings, dict) or not isinstance(raw_state, dict):
         raise BackupError("backup.error.missing_sections")
 
-    return PomodoroSettings.from_config(raw_settings), _normalized_state(raw_state)
+    raw_analytics = payload.get("analytics") if version == BACKUP_VERSION else None
+    return PomodoroSettings.from_config(raw_settings), _normalized_state(raw_state), _normalized_analytics(raw_analytics)
 
 
 def _normalized_state(state: object) -> dict[str, Any]:
@@ -69,4 +72,14 @@ def _normalized_state(state: object) -> dict[str, Any]:
         payload.update(state)
     payload.pop("_loaded_version", None)
     payload["version"] = STATE_VERSION
+    return payload
+
+
+def _normalized_analytics(analytics: object) -> dict[str, Any]:
+    payload = {"sessions": [], "review_events": [], "daily_stats": [], "session_progress": []}
+    if isinstance(analytics, dict):
+        for key in payload:
+            value = analytics.get(key)
+            if isinstance(value, list):
+                payload[key] = [row for row in value if isinstance(row, dict)]
     return payload

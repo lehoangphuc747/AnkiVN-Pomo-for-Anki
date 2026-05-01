@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import base64
 import json
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,8 @@ from .models import PomodoroTimerState, SessionMetrics
 
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "web"
+ROOT_DIR = ASSET_DIR.parent
+ICON_DIR = ROOT_DIR / "assets" / "icons"
 BRIDGE_PREFIX = "pomodoro:"
 
 
@@ -34,7 +37,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
         self.setObjectName("HtmlCornerBadgeWidget")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(210, 286)
+        self.setFixedSize(210, 296)
 
         self.web = self._make_webview()
         self.web.setObjectName("PomodoroCornerBadgeWeb")
@@ -76,7 +79,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
     def resize_for_audio(self, expanded: bool) -> None:
         self._expanded_audio = expanded
-        self.setFixedSize(210, 486 if expanded else 286)
+        self.setFixedSize(210, 496 if expanded else 296)
         self._move_clamped(self.pos())
 
     def _make_webview(self):
@@ -115,6 +118,19 @@ class HtmlCornerBadgeWidget(QFrame):
         return html[start + len("<body>") : end]
 
     def _render_template(self, template: str) -> str:
+        tomato_icon_src = _svg_data_uri(ICON_DIR / "tomato-1-svgrepo-com.svg")
+        play_icon_src = _svg_data_uri(ICON_DIR / "flaticon_10264043.svg")
+        pause_icon_src = _svg_data_uri(ICON_DIR / "pause-svgrepo-com.svg")
+        stop_icon_src = _svg_data_uri(ICON_DIR / "stop-svgrepo-com.svg")
+        shuffle_icon_src = _svg_data_uri(ICON_DIR / "shuffle-svgrepo-com.svg")
+        previous_icon_src = _svg_data_uri(ICON_DIR / "previous-999-svgrepo-com.svg")
+        next_icon_src = _svg_data_uri(ICON_DIR / "next-998-svgrepo-com.svg")
+        loop_icon_src = _svg_data_uri(ICON_DIR / "loop-svgrepo-com.svg")
+        settings_icon_src = _svg_data_uri(ICON_DIR / "settings-cog-options-config-configure-gear-engineering-svgrepo-com.svg")
+        soundcloud_icon_src = _svg_data_uri(ICON_DIR / "soundcloud-sound-cloud-svgrepo-com.svg")
+        bolt_icon_src = _svg_data_uri(ICON_DIR / "bolt-svgrepo-com.svg")
+        growth_icon_src = _svg_data_uri(ICON_DIR / "idea-svgrepo-com.svg")
+        fire_icon_src = _svg_data_uri(ICON_DIR / "fire-svgrepo-com.svg")
         values = {
             "html_lang": current_language(),
             "corner_aria": tr("corner.aria"),
@@ -129,8 +145,27 @@ class HtmlCornerBadgeWidget(QFrame):
             "audio_source_chillhop": tr("audio.source_chillhop"),
             "audio_youtube_placeholder": tr("audio.youtube_placeholder"),
             "action_load": tr("action.load"),
+            "action_shuffle": tr("action.shuffle"),
+            "action_previous": tr("action.previous"),
+            "action_play": tr("action.play"),
+            "action_next": tr("action.next"),
+            "action_loop": tr("action.loop"),
             "audio_inline_support": tr("audio.inline_support"),
             "streak_initial": tr("metric.day_short", count=0),
+            "streak_caption_initial": tr("streak.status_start"),
+            "tomato_icon_src": tomato_icon_src,
+            "play_icon_src": play_icon_src,
+            "pause_icon_src": pause_icon_src,
+            "stop_icon_src": stop_icon_src,
+            "shuffle_icon_src": shuffle_icon_src,
+            "previous_icon_src": previous_icon_src,
+            "next_icon_src": next_icon_src,
+            "loop_icon_src": loop_icon_src,
+            "settings_icon_src": settings_icon_src,
+            "soundcloud_icon_src": soundcloud_icon_src,
+            "bolt_icon_src": bolt_icon_src,
+            "growth_icon_src": growth_icon_src,
+            "fire_icon_src": fire_icon_src,
         }
         for key, value in values.items():
             template = template.replace("{{" + key + "}}", html.escape(str(value), quote=True))
@@ -155,9 +190,11 @@ class HtmlCornerBadgeWidget(QFrame):
             "paused": state.paused,
             "started": state.started,
             "streakText": tr("metric.day_short", count=metrics.streak_days),
+            "streakCaption": _streak_caption(metrics),
             "labels": {
                 "levelShort": tr("metric.level_short"),
                 "pomodoro": tr("mode.pomodoro"),
+                "streakCaption": tr("streak.status_start"),
             },
             "metrics": {
                 "sessionIndex": metrics.session_index,
@@ -226,3 +263,17 @@ class HtmlCornerBadgeWidget(QFrame):
         left = max(16, min(point.x(), parent.width() - self.width() - 16))
         top = max(16, min(point.y(), parent.height() - self.height() - 16))
         self.move(left, top)
+
+
+def _svg_data_uri(path: Path) -> str:
+    content = path.read_bytes()
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def _streak_caption(metrics: SessionMetrics) -> str:
+    if metrics.today_cards > 0:
+        return tr("streak.status_kept")
+    if metrics.streak_days > 0:
+        return tr("streak.status_need_today")
+    return tr("streak.status_start")

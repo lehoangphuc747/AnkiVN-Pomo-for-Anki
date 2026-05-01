@@ -6,16 +6,19 @@ from aqt.qt import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
 
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, PomodoroSettings
-from .ui_components import make_button, make_label
+from .ui_components import VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
 
 class SettingsDialog(QDialog):
     export_requested = pyqtSignal()
     import_requested = pyqtSignal()
+    reset_data_requested = pyqtSignal()
+    reset_all_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget, settings: PomodoroSettings) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
+        set_addon_window_icon(self)
         self.setModal(True)
         self.setMinimumWidth(420)
 
@@ -43,6 +46,8 @@ class SettingsDialog(QDialog):
 
         self.auto_break = QCheckBox(tr("settings.auto_start_break"))
         self.auto_break.setChecked(settings.auto_start_break)
+        self.auto_pomodoro_after_break = QCheckBox(tr("settings.auto_start_pomodoro_after_break"))
+        self.auto_pomodoro_after_break.setChecked(settings.auto_start_pomodoro_after_break)
 
         self.language_combo = QComboBox()
         for language, label in available_languages():
@@ -68,6 +73,7 @@ class SettingsDialog(QDialog):
             root.addLayout(row)
 
         root.addWidget(self.auto_break)
+        root.addWidget(self.auto_pomodoro_after_break)
         root.addSpacing(4)
 
         data_row = QHBoxLayout()
@@ -78,6 +84,14 @@ class SettingsDialog(QDialog):
         data_row.addWidget(self.export_button)
         data_row.addWidget(self.import_button)
         root.addLayout(data_row)
+
+        reset_row = QHBoxLayout()
+        reset_row.addStretch(1)
+        self.reset_data_button = make_button(tr("reset.study_button"), "secondary", tr("reset.study_tooltip"))
+        self.reset_all_button = make_button(tr("reset.all_button"), "secondary", tr("reset.all_tooltip"))
+        reset_row.addWidget(self.reset_data_button)
+        reset_row.addWidget(self.reset_all_button)
+        root.addLayout(reset_row)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
@@ -90,7 +104,19 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         self.export_button.clicked.connect(self.export_requested.emit)
         self.import_button.clicked.connect(self.import_requested.emit)
+        self.reset_data_button.clicked.connect(self.reset_data_requested.emit)
+        self.reset_all_button.clicked.connect(self.reset_all_requested.emit)
         root.addWidget(buttons)
+
+        credit = QHBoxLayout()
+        credit.setContentsMargins(0, 0, 0, 0)
+        credit.setSpacing(6)
+        credit.addStretch(1)
+        credit.addWidget(make_label("Made by Phuc Lee from", "muted"))
+        credit.addWidget(make_icon_label(VIETNAM_ICON_PATH, 16))
+        credit.addWidget(make_label("with L0v3", "muted"))
+        credit.addStretch(1)
+        root.addLayout(credit)
 
     def to_settings(self, previous: PomodoroSettings) -> PomodoroSettings:
         return PomodoroSettings(
@@ -98,6 +124,7 @@ class SettingsDialog(QDialog):
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),
+            auto_start_pomodoro_after_break=bool(self.auto_pomodoro_after_break.isChecked()),
             language=str(self.language_combo.currentData() or previous.language),
             corner_left=previous.corner_left,
             corner_top=previous.corner_top,

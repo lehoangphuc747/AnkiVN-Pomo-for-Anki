@@ -8,14 +8,13 @@ and ``dialogs``.
 from __future__ import annotations
 
 from .corner_badge import HtmlCornerBadgeWidget
-from .dialogs import PomodoroDoneDialog
+from .dialogs import BreakDoneDialog, PomodoroDoneDialog
 from .settings_dialog import SettingsDialog
 from .sidebar_panel import SidebarWidget
 from .ui_components import (
     ALIGN_CENTER,
     SYMBOL_BREAK,
     SYMBOL_CLOSE,
-    SYMBOL_FIRE,
     SYMBOL_GEAR,
     SYMBOL_LIGHTNING,
     SYMBOL_MUSIC,
@@ -51,7 +50,6 @@ __all__ = [
     "ALIGN_CENTER",
     "SYMBOL_BREAK",
     "SYMBOL_CLOSE",
-    "SYMBOL_FIRE",
     "SYMBOL_GEAR",
     "SYMBOL_LIGHTNING",
     "SYMBOL_MUSIC",
@@ -66,6 +64,7 @@ __all__ = [
     "CircularProgress",
     "CornerBadgeWidget",
     "HtmlCornerBadgeWidget",
+    "BreakDoneDialog",
     "PomodoroDoneDialog",
     "SettingsDialog",
     "SidebarWidget",

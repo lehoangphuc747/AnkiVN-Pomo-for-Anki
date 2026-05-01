@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Optional
 from uuid import uuid4
 
 from .models import (
-    DailyActivity,
     MODE_BREAK,
     MODE_POMODORO,
     SessionHistoryEntry,
@@ -15,13 +14,13 @@ from .models import (
     StudySessionState,
     TimerRuntimeState,
 )
+from .analytics_store import PomodoroAnalyticsStore
 from .storage import PomodoroDataStore
-from .tracking import CARD_KIND_NEW, ReviewAnswerEvent
+from .tracking import ReviewAnswerEvent
 
 
 SESSION_TOTAL = 4
 MAX_HISTORY_ITEMS = 40
-MAX_DAILY_STATS_DAYS = 180
 XP_BY_EASE = {
     1: -1,
     2: 1,
@@ -45,33 +44,59 @@ LEVEL_THRESHOLDS = {
 class PomodoroSessionManager:
     """Owns non-UI Pomodoro state for the active Anki profile."""
 
-    def __init__(self, store: PomodoroDataStore) -> None:
+    def __init__(self, store: PomodoroDataStore, analytics_store: Optional[PomodoroAnalyticsStore] = None) -> None:
         self._store = store
+        self._analytics_store = analytics_store
         self._state = store.load()
         self.active_session = StudySessionState.from_dict(self._state.get("active_session"))
-        self.history = self._load_history(self._state.get("history"))
-        self.daily_stats = self._load_daily_stats(self._state.get("daily_stats"))
-        self.total_xp = self._load_total_xp(self._state.get("total_xp"))
+        legacy_history = self._load_history(self._state.get("history"))
+        legacy_daily_stats = self._load_daily_stats(self._state.get("daily_stats"))
         self.session_index = self._coerce_session_index(self._state.get("session_index"))
         if self.active_session:
             self.session_index = self.active_session.session_index
-        self.current_streak_days = self._coerce_non_negative(self._state.get("current_streak_days"))
-        self.longest_streak_days = self._coerce_non_negative(self._state.get("longest_streak_days"))
         self._timer_state = TimerRuntimeState.from_dict(self._state.get("timer_state"))
         self._audio_state = self._state.get("audio_state") if isinstance(self._state.get("audio_state"), dict) else {}
-        self._recompute_streaks()
+        if self._analytics_store is not None:
+            self._analytics_store.bootstrap_from_json(legacy_history, legacy_daily_stats, self.active_session)
 
     def metrics(self) -> SessionMetrics:
         session = self.active_session or self._empty_session()
-        today = self.daily_stats.get(_today_key(), {})
-        level = level_state(self.total_xp)
-        return session.to_metrics(
-            streak_days=self.current_streak_days,
-            longest_streak_days=self.longest_streak_days,
-            today_cards=self._coerce_non_negative(today.get("cards")),
-            today_xp=self._coerce_non_negative(today.get("xp")),
-            week_activity=self.week_activity(),
-            total_xp=self.total_xp,
+        source = self._metrics_source(session)
+        session_progress = source["progress"]
+        today_progress = source.get("today_progress") or session_progress
+        total_xp = self._coerce_non_negative(source.get("total_xp"))
+        level = level_state(total_xp)
+        return SessionMetrics(
+            session_index=session.session_index,
+            session_total=session.session_total,
+            xp_current=total_xp,
+            xp_goal=level["next_level_xp"],
+            cards=self._coerce_non_negative(today_progress.get("cards")),
+            retention=_retention_from_progress(today_progress),
+            streak_days=self._coerce_non_negative(source.get("streak_days")),
+            new_cards=self._coerce_non_negative(today_progress.get("new_cards")),
+            learning_cards=self._coerce_non_negative(today_progress.get("learning_cards")),
+            review_cards=self._coerce_non_negative(today_progress.get("review_cards")),
+            relearning_cards=self._coerce_non_negative(today_progress.get("relearning_cards")),
+            filtered_cards=self._coerce_non_negative(today_progress.get("filtered_cards")),
+            again_cards=self._coerce_non_negative(today_progress.get("again_cards")),
+            hard_cards=self._coerce_non_negative(today_progress.get("hard_cards")),
+            good_cards=self._coerce_non_negative(today_progress.get("good_cards")),
+            easy_cards=self._coerce_non_negative(today_progress.get("easy_cards")),
+            longest_streak_days=self._coerce_non_negative(source.get("longest_streak_days")),
+            today_cards=self._coerce_non_negative(source.get("today_cards")),
+            today_xp=self._coerce_non_negative(source.get("today_xp")),
+            streak_start_date=str(source.get("streak_start_date") or ""),
+            today_reviews=self._coerce_non_negative(source.get("today_reviews")),
+            yesterday_reviews=self._coerce_non_negative(source.get("yesterday_reviews")),
+            cutoff_hour=(
+                self._coerce_non_negative(source.get("cutoff_hour")) if source.get("cutoff_hour") is not None else 4
+            ),
+            seconds_until_cutoff=self._coerce_non_negative(source.get("seconds_until_cutoff")),
+            session_cards=self._coerce_non_negative(session_progress.get("cards")),
+            session_retention=_retention_from_progress(session_progress),
+            session_xp=self._coerce_non_negative(session_progress.get("xp")),
+            total_xp=total_xp,
             level=level["level"],
             level_floor_xp=level["floor_xp"],
             next_level_xp=level["next_level_xp"],
@@ -82,19 +107,21 @@ class PomodoroSessionManager:
     def timer_state(self) -> TimerRuntimeState:
         return self._timer_state
 
-    def save_timer_state(self, timer_state: TimerRuntimeState) -> None:
+    def save_timer_state(self, timer_state: TimerRuntimeState) -> bool:
         self._timer_state = timer_state
-        self.save()
+        return self.save()
 
     def audio_state(self) -> dict:
         return dict(self._audio_state)
 
-    def save_audio_state(self, audio_state: dict) -> None:
+    def save_audio_state(self, audio_state: dict) -> bool:
         self._audio_state = dict(audio_state or {})
-        self.save()
+        return self.save()
 
     def mark_timer_started(self, deck_id: Optional[int] = None, deck_name: str = "") -> SessionMetrics:
-        self.ensure_active_session(deck_id, deck_name)
+        session = self.ensure_active_session(deck_id, deck_name)
+        if self._analytics_store is not None:
+            self._analytics_store.seed_session_progress(session)
         self.save()
         return self.metrics()
 
@@ -103,90 +130,94 @@ class PomodoroSessionManager:
         now = _now_iso()
         ease = max(1, min(4, int(event.ease or 1)))
         xp = XP_BY_EASE.get(ease, 0)
-
-        session.cards += 1
-        session.xp_current = max(0, session.xp_current + xp)
-        self.total_xp = max(0, self.total_xp + xp)
         session.updated_at = now
         if event.deck_id is not None:
             session.deck_id = event.deck_id
         if event.deck_name:
             session.deck_name = event.deck_name
-
-        if event.card_kind == CARD_KIND_NEW:
-            session.new_cards += 1
-        else:
-            session.review_cards += 1
-
-        if ease == 1:
-            session.again_cards += 1
-        elif ease == 2:
-            session.hard_cards += 1
-        elif ease == 3:
-            session.good_cards += 1
-        else:
-            session.easy_cards += 1
-
-        self._update_daily_stats(ease, xp)
-        self._recompute_streaks()
+        if self._analytics_store is not None:
+            self._analytics_store.record_answer(
+                answered_at=now,
+                session=session,
+                card_id=event.card_id,
+                ease=ease,
+                card_kind=event.card_kind,
+                deck_id=event.deck_id,
+                deck_name=event.deck_name,
+                xp=xp,
+                day=_today_key(),
+            )
         self.save()
         return self.metrics()
 
     def complete_pomodoro(self, duration_seconds: int) -> SessionMetrics:
         session = self.ensure_active_session()
         completed_metrics = self.metrics()
-        self._append_history(session, MODE_POMODORO, duration_seconds, completed=True)
+        if self._analytics_store is not None:
+            self._analytics_store.finalize_session(
+                session,
+                mode=MODE_POMODORO,
+                ended_at=_now_iso(),
+                duration_seconds=duration_seconds,
+                completed=True,
+            )
         self.session_index = self._next_session_index(session.session_index)
         self.active_session = None
         self.save()
         return completed_metrics
 
     def complete_break(self, duration_seconds: int) -> SessionMetrics:
-        self.history.append(
-            SessionHistoryEntry(
-                mode=MODE_BREAK,
-                session_index=self.session_index,
-                session_total=SESSION_TOTAL,
-                started_at="",
-                ended_at=_now_iso(),
-                duration_seconds=max(0, int(duration_seconds)),
-                completed=True,
-            )
+        entry = SessionHistoryEntry(
+            mode=MODE_BREAK,
+            session_index=self.session_index,
+            session_total=SESSION_TOTAL,
+            started_at="",
+            ended_at=_now_iso(),
+            duration_seconds=max(0, int(duration_seconds)),
+            completed=True,
         )
-        self.history = self.history[-MAX_HISTORY_ITEMS:]
+        if self._analytics_store is not None:
+            self._analytics_store.record_session(entry)
         self.save()
         return self.metrics()
 
     def stop_current_session(self, mode: str, duration_seconds: int) -> SessionMetrics:
         if self.active_session is not None and self._has_session_data(self.active_session):
-            self._append_history(self.active_session, mode, duration_seconds, completed=False)
+            if self._analytics_store is not None:
+                self._analytics_store.finalize_session(
+                    self.active_session,
+                    mode=mode,
+                    ended_at=_now_iso(),
+                    duration_seconds=duration_seconds,
+                    completed=False,
+                )
         self.active_session = None
         self.save()
         return self.metrics()
 
     def recent_history(self) -> list[SessionHistoryEntry]:
-        return list(self.history[-MAX_HISTORY_ITEMS:])
+        if self._analytics_store is not None:
+            return self._analytics_store.session_history(max_rows=MAX_HISTORY_ITEMS)
+        return []
+
+    def history_for_popover(self) -> list[SessionHistoryEntry]:
+        if self._analytics_store is not None:
+            return self._analytics_store.session_history()
+        return []
+
+    def history_popover_snapshot(self) -> dict:
+        today_key = _today_key()
+        if self._analytics_store is not None:
+            today_entries = self._analytics_store.session_history_for_day(today_key, max_rows=12)
+            day_summaries = self._analytics_store.history_day_summaries(limit_days=60)
+            return {"today": today_entries, "days": day_summaries}
+        return {"today": [], "days": []}
 
     def today_history(self) -> list[SessionHistoryEntry]:
         today_key = _today_key()
-        return [entry for entry in self.recent_history() if _date_key_from_iso(entry.ended_at) == today_key]
-
-    def week_activity(self) -> tuple[DailyActivity, ...]:
-        today = date.today()
-        days = []
-        for offset in range(6, -1, -1):
-            day = today - timedelta(days=offset)
-            key = day.isoformat()
-            stats = self.daily_stats.get(key, {})
-            days.append(
-                DailyActivity(
-                    label=day.strftime("%a"),
-                    date=key,
-                    cards=self._coerce_non_negative(stats.get("cards")),
-                    xp=self._coerce_non_negative(stats.get("xp")),
-                )
-            )
-        return tuple(days)
+        if self._analytics_store is not None:
+            return self._analytics_store.session_history_for_day(today_key)
+        return []
 
     def ensure_active_session(self, deck_id: Optional[int] = None, deck_name: str = "") -> StudySessionState:
         if self.active_session is None:
@@ -207,18 +238,17 @@ class PomodoroSessionManager:
                 self.active_session.deck_name = deck_name
         return self.active_session
 
-    def save(self) -> None:
-        self._prune_daily_stats()
-        self._store.save(
+    def save(self) -> bool:
+        return self._store.save(
             {
                 "active_session": self.active_session.to_dict() if self.active_session else None,
                 "timer_state": self._timer_state.to_dict() if self._timer_state else None,
-                "history": [entry.to_dict() for entry in self.history[-MAX_HISTORY_ITEMS:]],
-                "daily_stats": self.daily_stats,
-                "total_xp": self.total_xp,
+                "history": [],
+                "daily_stats": {},
+                "total_xp": 0,
                 "session_index": self.session_index,
-                "current_streak_days": self.current_streak_days,
-                "longest_streak_days": self.longest_streak_days,
+                "current_streak_days": 0,
+                "longest_streak_days": 0,
                 "audio_state": self._audio_state,
             }
         )
@@ -232,78 +262,59 @@ class PomodoroSessionManager:
             session_total=SESSION_TOTAL,
         )
 
-    def _append_history(self, session: StudySessionState, mode: str, duration_seconds: int, completed: bool) -> None:
-        self.history.append(
-            SessionHistoryEntry.from_session(
-                session=session,
-                mode=mode,
-                ended_at=_now_iso(),
-                duration_seconds=duration_seconds,
-                completed=completed,
-            )
-        )
-        self.history = self.history[-MAX_HISTORY_ITEMS:]
-
-    def _update_daily_stats(self, ease: int, xp: int) -> None:
-        key = _today_key()
-        stats = self.daily_stats.setdefault(key, {})
-        stats["cards"] = self._coerce_non_negative(stats.get("cards")) + 1
-        stats["xp"] = max(0, self._coerce_non_negative(stats.get("xp")) + xp)
-        stats["again"] = self._coerce_non_negative(stats.get("again")) + (1 if ease == 1 else 0)
-        stats["hard"] = self._coerce_non_negative(stats.get("hard")) + (1 if ease == 2 else 0)
-        stats["good"] = self._coerce_non_negative(stats.get("good")) + (1 if ease == 3 else 0)
-        stats["easy"] = self._coerce_non_negative(stats.get("easy")) + (1 if ease == 4 else 0)
-
-    def _recompute_streaks(self) -> None:
-        today = date.today()
-        end_day = today
-        if not self._has_activity_on(end_day) and self._has_activity_on(today - timedelta(days=1)):
-            end_day = today - timedelta(days=1)
-
-        streak = 0
-        cursor = end_day
-        while self._has_activity_on(cursor):
-            streak += 1
-            cursor -= timedelta(days=1)
-
-        self.current_streak_days = streak
-        self.longest_streak_days = max(self.longest_streak_days, self._compute_longest_streak())
-
-    def _compute_longest_streak(self) -> int:
-        active_days = sorted(key for key, stats in self.daily_stats.items() if self._coerce_non_negative(stats.get("cards")) > 0)
-        longest = 0
-        current = 0
-        previous: Optional[date] = None
-        for key in active_days:
-            try:
-                day = date.fromisoformat(key)
-            except ValueError:
-                continue
-            if previous is None or day == previous + timedelta(days=1):
-                current += 1
-            else:
-                current = 1
-            longest = max(longest, current)
-            previous = day
-        return longest
-
-    def _has_activity_on(self, day: date) -> bool:
-        stats = self.daily_stats.get(day.isoformat(), {})
-        return self._coerce_non_negative(stats.get("cards")) > 0
-
-    def _prune_daily_stats(self) -> None:
-        if len(self.daily_stats) <= MAX_DAILY_STATS_DAYS:
-            return
-        keep_keys = sorted(self.daily_stats.keys())[-MAX_DAILY_STATS_DAYS:]
-        self.daily_stats = {key: self.daily_stats[key] for key in keep_keys}
-
     def _next_session_index(self, current_index: int) -> int:
-        if current_index >= SESSION_TOTAL:
-            return 1
-        return current_index + 1
+        try:
+            parsed = int(current_index)
+        except (TypeError, ValueError):
+            parsed = 1
+        return max(1, parsed) + 1
 
     def _has_session_data(self, session: StudySessionState) -> bool:
-        return session.cards > 0 or session.xp_current > 0
+        if self._analytics_store is not None:
+            return self._analytics_store.has_session_progress_data(session.id)
+        return False
+
+    def _metrics_source(self, session: StudySessionState) -> dict:
+        if self._analytics_store is not None:
+            return self._analytics_store.metrics_source(session, _today_key())
+        return {
+            "progress": {
+                "cards": 0,
+                "new_cards": 0,
+                "learning_cards": 0,
+                "review_cards": 0,
+                "relearning_cards": 0,
+                "filtered_cards": 0,
+                "again_cards": 0,
+                "hard_cards": 0,
+                "good_cards": 0,
+                "easy_cards": 0,
+                "xp": 0,
+            },
+            "today_progress": {
+                "cards": 0,
+                "new_cards": 0,
+                "learning_cards": 0,
+                "review_cards": 0,
+                "relearning_cards": 0,
+                "filtered_cards": 0,
+                "again_cards": 0,
+                "hard_cards": 0,
+                "good_cards": 0,
+                "easy_cards": 0,
+                "xp": 0,
+            },
+            "today_cards": 0,
+            "today_xp": 0,
+            "total_xp": 0,
+            "streak_days": 0,
+            "longest_streak_days": 0,
+            "streak_start_date": "",
+            "today_reviews": 0,
+            "yesterday_reviews": 0,
+            "cutoff_hour": 4,
+            "seconds_until_cutoff": 0,
+        }
 
     def _load_history(self, raw_history: object) -> list[SessionHistoryEntry]:
         if not isinstance(raw_history, list):
@@ -332,20 +343,12 @@ class PomodoroSessionManager:
             }
         return clean
 
-    def _load_total_xp(self, value: object) -> int:
-        total_xp = self._coerce_non_negative(value)
-        if total_xp > 0:
-            return total_xp
-        if self._coerce_non_negative(self._state.get("_loaded_version")) < 2:
-            return sum(self._coerce_non_negative(stats.get("xp")) for stats in self.daily_stats.values())
-        return 0
-
     def _coerce_session_index(self, value: object) -> int:
         try:
             parsed = int(value)
         except (TypeError, ValueError):
             return 1
-        return max(1, min(SESSION_TOTAL, parsed))
+        return max(1, parsed)
 
     def _coerce_non_negative(self, value: object) -> int:
         try:
@@ -373,6 +376,42 @@ def _date_key_from_iso(value: str) -> str:
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone()
     return parsed.date().isoformat()
+
+
+def _summaries_from_history(history: list[SessionHistoryEntry]) -> list[dict]:
+    summaries: dict[str, dict] = {}
+    for entry in history:
+        day = _date_key_from_iso(entry.ended_at)
+        if not day:
+            continue
+        summary = summaries.setdefault(
+            day,
+            {"day": day, "pomodoros": 0, "breaks": 0, "cards": 0, "xp": 0, "duration_seconds": 0},
+        )
+        if entry.mode == MODE_BREAK:
+            summary["breaks"] += 1
+        else:
+            summary["pomodoros"] += 1
+        summary["cards"] += max(0, entry.cards)
+        summary["xp"] += max(0, entry.xp)
+        summary["duration_seconds"] += max(0, entry.duration_seconds)
+    return [summaries[key] for key in sorted(summaries.keys(), reverse=True)]
+
+
+def _retention_from_progress(progress: dict) -> int:
+    cards = _non_negative(progress.get("cards"))
+    if cards <= 0:
+        return 0
+    again = _non_negative(progress.get("again_cards"))
+    return round((cards - again) * 100 / cards)
+
+
+def _non_negative(value: object) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, parsed)
 
 
 def level_state(total_xp: int) -> dict:

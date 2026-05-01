@@ -14,6 +14,8 @@ COLORS = {
     "red_dark": "#C23F38",
     "red_light": "#FEF6F5",
     "green": "#739E73",
+    "pink": "#F6908F",
+    "yellow": "#FBC02D",
     "badge": "#F5EFE6",
     "soft": "#F2F1EC",
 }
@@ -47,15 +49,21 @@ def addon_qss() -> str:
     }}
     QLabel[role="mode"] {{
         color: {COLORS["red"]};
-        font-size: 11px;
-        font-weight: 700;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }}
+    QLabel[role="brand"] {{
+        color: {COLORS["red"]};
+        font-size: 15px;
+        font-weight: 800;
         letter-spacing: 1px;
     }}
     QLabel[role="timer"] {{
         color: {COLORS["red"]};
-        font-size: 28px;
+        font-size: 31px;
         font-weight: 650;
-        min-height: 32px;
+        min-height: 34px;
         padding: 0;
     }}
     QLabel[role="timerSmall"] {{

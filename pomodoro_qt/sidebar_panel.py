@@ -7,24 +7,27 @@ from typing import Iterable
 from aqt.qt import QFrame, QHBoxLayout, QPushButton, QVBoxLayout
 
 from .i18n import tr
-from .models import PomodoroTimerState, SessionMetrics
+from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
 from .style import COLORS
 from .ui_components import (
     ALIGN_CENTER,
+    BRAIN_ICON_PATH,
     CircularProgress,
-    SYMBOL_FIRE,
+    BOLT_ICON_PATH,
+    GROWTH_ICON_PATH,
+    HISTORY_ICON_PATH,
     SYMBOL_LIGHTNING,
-    SYMBOL_SPARKLE,
-    SYMBOL_TOMATO,
+    TOMATO_ICON_PATH,
+    FIRE_ICON_PATH,
     make_audio_mini_button,
     make_button,
-    make_label,
-    make_session_dots_text,
+    make_icon_text_label,
     make_primary_pause_button,
     make_settings_button,
     make_sidebar_metric_button,
     make_stop_button,
     mode_label_text,
+    set_button_icon,
     set_accent_property,
     set_pause_button_state,
 )
@@ -42,8 +45,14 @@ class SidebarWidget(QFrame):
         root.setSpacing(16)
 
         header = QHBoxLayout()
-        header.setSpacing(8)
-        self.mode_label = make_label(f"{SYMBOL_TOMATO} {tr('mode.pomodoro').upper()}", "caption")
+        header.setSpacing(10)
+        self.mode_label = make_icon_text_label(
+            TOMATO_ICON_PATH,
+            self._brand_text(),
+            "brand",
+            18,
+            7,
+        )
         self.settings_button = make_settings_button(COLORS["muted_light"], 16)
         header.addWidget(self.mode_label)
         header.addStretch(1)
@@ -77,15 +86,19 @@ class SidebarWidget(QFrame):
         self.experience_button = make_sidebar_metric_button(
             tr("metric.experience"), self._experience_text(metrics), tr("tooltip.experience")
         )
+        set_button_icon(self.experience_button, GROWTH_ICON_PATH, 13)
         self.retention_button = make_sidebar_metric_button(
-            tr("metric.retention"), tr("common.percent", value=metrics.retention), tr("tooltip.retention")
+            tr("metric.retention"), tr("common.percent", value=metrics.retention), tr("tooltip.retention"), COLORS["pink"]
         )
+        set_button_icon(self.retention_button, BRAIN_ICON_PATH, 13)
         self.cards_button = make_sidebar_metric_button(
-            tr("metric.cards_studied"), f"{SYMBOL_LIGHTNING} {tr('metric.cards_short', count=metrics.cards)}", tr("tooltip.cards")
+            tr("metric.cards_studied"), tr("metric.cards_short", count=metrics.cards), tr("tooltip.cards"), COLORS["yellow"]
         )
+        set_button_icon(self.cards_button, BOLT_ICON_PATH, 13)
         self.streak_button = make_sidebar_metric_button(
-            f"{SYMBOL_FIRE} {tr('metric.streak')}", tr("metric.days", count=metrics.streak_days), tr("tooltip.streak")
+            tr("metric.streak"), tr("metric.days", count=metrics.streak_days), tr("tooltip.streak"), COLORS["red"]
         )
+        set_button_icon(self.streak_button, FIRE_ICON_PATH, 13)
         metrics_layout = QVBoxLayout()
         metrics_layout.setSpacing(0)
         metrics_layout.setContentsMargins(0, 0, 0, 0)
@@ -98,7 +111,7 @@ class SidebarWidget(QFrame):
         root.addWidget(self.audio_button)
 
     def sync_state(self, state: PomodoroTimerState) -> None:
-        self.mode_label.setText(mode_label_text(state))
+        self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.circular.set_state(state)
         set_accent_property(self.mode_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused, primary=True)
@@ -109,8 +122,8 @@ class SidebarWidget(QFrame):
         self.session_button.setText(self._session_text(metrics))
         self.experience_button.setText(f"{tr('metric.experience'):<14}{self._experience_text(metrics)}")
         self.retention_button.setText(f"{tr('metric.retention'):<14}{tr('common.percent', value=metrics.retention)}")
-        self.cards_button.setText(f"{tr('metric.cards_studied'):<14}{SYMBOL_LIGHTNING} {tr('metric.cards_short', count=metrics.cards)}")
-        self.streak_button.setText(f"{SYMBOL_FIRE} {tr('metric.streak'):<7}{tr('metric.days', count=metrics.streak_days)}")
+        self.cards_button.setText(f"{tr('metric.cards_studied'):<14}{tr('metric.cards_short', count=metrics.cards)}")
+        self.streak_button.setText(f"{tr('metric.streak'):<14}{tr('metric.days', count=metrics.streak_days)}")
 
     def metric_buttons(self) -> Iterable[QPushButton]:
         return [
@@ -123,6 +136,7 @@ class SidebarWidget(QFrame):
 
     def _make_session_button(self, metrics: SessionMetrics) -> QPushButton:
         button = make_button(self._session_text(metrics), "sessionHistory", tr("tooltip.session_history"))
+        set_button_icon(button, HISTORY_ICON_PATH, 14)
         button.setStyleSheet(
             f"""
             QPushButton {{
@@ -143,7 +157,10 @@ class SidebarWidget(QFrame):
         return button
 
     def _session_text(self, metrics: SessionMetrics) -> str:
-        return f"{make_session_dots_text(metrics)}\n{tr('session.sidebar', index=metrics.session_index, total=metrics.session_total)}"
+        return ""
 
     def _experience_text(self, metrics: SessionMetrics) -> str:
-        return f"{tr('metric.level_short')} {metrics.level} {metrics.total_xp}/{metrics.next_level_xp} {SYMBOL_SPARKLE}"
+        return f"{tr('metric.level_short')} {metrics.level} · {metrics.total_xp}/{metrics.next_level_xp} {tr('common.xp')}"
+
+    def _brand_text(self) -> str:
+        return f"<span style='color:{COLORS['text']}'>Pomo</span><span style='color:{COLORS['red']}'>VN</span>"

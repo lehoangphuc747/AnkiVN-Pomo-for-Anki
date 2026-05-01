@@ -2,139 +2,175 @@
 
 from __future__ import annotations
 
-from aqt.qt import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget, Qt
+from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, Qt
 
 from .i18n import tr
 from .models import SessionMetrics
 from .popover_shell import PopoverShell
 from .style import COLORS
+from .ui_components import FIRE_ICON_PATH, make_icon_label
 
 
-ALIGN_BOTTOM = Qt.AlignmentFlag.AlignBottom
-FIRE = "\U0001f525"
-SPARKLE = "\u2728"
-POPOVER_WIDTH = 272
-FOOTER_RADIUS = 12
-BAR_RADIUS = 5
-CHART_HEIGHT = 76
-WEEK_BAR_COUNT = 7
+ALIGN_CENTER = Qt.AlignmentFlag.AlignCenter
+POPOVER_WIDTH = 320
 
 
 class StreakPopover(PopoverShell):
-    """Detailed streak popover matching the mockup's Streaks interaction."""
+    """Detailed streak popover for the study-streak metric."""
 
     def __init__(self, metrics: SessionMetrics) -> None:
         super().__init__(POPOVER_WIDTH, margins=(14, 14, 14, 14), spacing=10)
         self.metrics = metrics
-        self._bars: list[QFrame] = []
+        self.refresh_data(metrics)
 
+    def refresh_data(self, metrics: SessionMetrics) -> None:
+        self.clear_content()
+        self.metrics = metrics
         root = self.content_layout
 
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
-        title_box = QVBoxLayout()
-        title_box.setSpacing(2)
-
-        eyebrow = QLabel(f"{FIRE} {tr('streak.eyebrow')}")
-        eyebrow.setStyleSheet(
-            f"color: {COLORS['red']}; font-size: 11px; font-weight: 800;"
-        )
         self.title_label = QLabel()
-        self.title_label.setStyleSheet("font-size: 16px; font-weight: 650;")
-        subtitle = QLabel(tr("streak.subtitle"))
-        subtitle.setStyleSheet(f"color: {COLORS['muted']}; font-size: 11px;")
+        self.status_label = QLabel()
+        self.cutoff_label = QLabel()
+        root.addWidget(self._make_hero())
 
-        title_box.addWidget(eyebrow)
-        title_box.addWidget(self.title_label)
-        title_box.addWidget(subtitle)
-        header.addLayout(title_box, 1)
-        root.addLayout(header)
+        self.today_line_label = QLabel()
+        root.addWidget(self._make_today_line())
 
-        root.addWidget(self._make_week_chart())
-
-        self.today_value = self._make_row(root, tr("metric.today"))
-        self.longest_value = self._make_row(root, tr("metric.longest_streak"))
-        self.goal_value = self._make_row(root, tr("metric.streak_goal"))
-
-        self.footer_label = QLabel()
-        self.footer_label.setWordWrap(True)
-        self.footer_label.setStyleSheet(
-            f"""
-            background: {COLORS['badge']};
-            color: {COLORS['muted']};
-            border-radius: {FOOTER_RADIUS}px;
-            padding: 7px 10px;
-            font-size: 11px;
-            font-weight: 600;
-            """
-        )
-        root.addWidget(self.footer_label)
+        self.start_value = QLabel()
+        self.longest_value = QLabel()
+        self.yesterday_value = QLabel()
+        self.today_value = QLabel()
+        root.addLayout(self._make_context_grid())
 
         self.refresh_metrics(metrics)
 
     def refresh_metrics(self, metrics: SessionMetrics) -> None:
         self.metrics = metrics
-        self.title_label.setText(tr("metric.days", count=metrics.streak_days))
-        self.today_value.setText(f"{tr('streak.today_value', cards=metrics.today_cards, xp=metrics.today_xp)} {SPARKLE}")
-        self.longest_value.setText(tr("metric.days", count=metrics.longest_streak_days))
-        self.goal_value.setText(tr("metric.study_daily"))
-        self.footer_label.setText(tr("streak.footer", days=metrics.streak_days))
-        self._sync_chart(metrics)
+        self.title_label.setText(tr("streak.hero_title", days=max(0, metrics.streak_days)))
+        self.status_label.setText(_status_text(metrics))
+        self.cutoff_label.setText(_cutoff_text(metrics))
+        self.today_line_label.setText(tr("streak.today_reviews_line", count=max(0, metrics.today_reviews)))
 
-    def _make_week_chart(self) -> QWidget:
-        chart = QWidget()
-        chart.setFixedHeight(CHART_HEIGHT)
-        layout = QHBoxLayout(chart)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        self.start_value.setText(metrics.streak_start_date or tr("streak.no_start_date"))
+        self.longest_value.setText(tr("metric.days", count=max(0, metrics.longest_streak_days)))
+        self.yesterday_value.setText(tr("streak.review_count", count=max(0, metrics.yesterday_reviews)))
+        self.today_value.setText(tr("streak.review_count", count=max(0, metrics.today_reviews)))
 
-        for _index in range(WEEK_BAR_COUNT):
-            bar = QFrame()
-            bar.setMouseTracking(True)
-            bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            self._bars.append(bar)
-            layout.addWidget(bar, 1, ALIGN_BOTTOM)
+    def _make_hero(self) -> QFrame:
+        hero = QFrame()
+        hero.setStyleSheet(
+            f"""
+            QFrame {{
+                background: {COLORS['red_light']};
+                border: 0;
+                border-radius: 14px;
+            }}
+            """
+        )
+        layout = QHBoxLayout(hero)
+        layout.setContentsMargins(13, 12, 13, 12)
+        layout.setSpacing(11)
 
-        return chart
+        icon = QFrame()
+        icon.setFixedSize(36, 36)
+        icon.setStyleSheet(
+            """
+            QFrame {
+                background: #FFFFFF;
+                border: 0;
+                border-radius: 18px;
+            }
+            """
+        )
+        icon_layout = QVBoxLayout(icon)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_layout.addWidget(make_icon_label(FIRE_ICON_PATH, 22), 0, ALIGN_CENTER)
 
-    def _sync_chart(self, metrics: SessionMetrics) -> None:
-        activity = list(metrics.week_activity)[-WEEK_BAR_COUNT:]
-        if not activity:
-            activity = []
-        while len(activity) < WEEK_BAR_COUNT:
-            activity.insert(0, None)
+        copy = QVBoxLayout()
+        copy.setContentsMargins(0, 0, 0, 0)
+        copy.setSpacing(3)
+        eyebrow = QLabel(tr("streak.eyebrow"))
+        eyebrow.setStyleSheet(f"color: {COLORS['red']}; font-size: 10px; font-weight: 800; letter-spacing: 1px;")
+        self.title_label.setStyleSheet(f"color: {COLORS['text']}; font-size: 21px; font-weight: 760;")
+        self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 700;")
+        self.cutoff_label.setWordWrap(True)
+        self.cutoff_label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 11px; font-weight: 650;")
+        copy.addWidget(eyebrow)
+        copy.addWidget(self.title_label)
+        copy.addWidget(self.status_label)
+        copy.addWidget(self.cutoff_label)
 
-        max_cards = max((item.cards for item in activity if item is not None), default=0) or 1
+        layout.addWidget(icon)
+        layout.addLayout(copy, 1)
+        return hero
 
-        for index, (bar, item) in enumerate(zip(self._bars, activity)):
-            if item is None:
-                day = "-"
-                cards = 0
-                xp = 0
-            else:
-                day = item.label
-                cards = item.cards
-                xp = item.xp
-            height = max(22, round(CHART_HEIGHT * cards / max_cards))
-            color = COLORS["red"] if index == len(activity) - 1 else COLORS["border"]
-            bar.setFixedHeight(height)
-            bar.setToolTip(tr("streak.tooltip_day", day=day, cards=cards, xp=xp))
-            bar.setStyleSheet(f"background: {color}; border: 0; border-radius: {BAR_RADIUS}px;")
+    def _make_today_line(self) -> QFrame:
+        row = QFrame()
+        row.setStyleSheet(
+            """
+            QFrame {
+                background: #FAF9F6;
+                border: 0;
+                border-radius: 10px;
+            }
+            """
+        )
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(11, 8, 11, 8)
+        self.today_line_label.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 700;")
+        layout.addWidget(self.today_line_label)
+        return row
 
-    def _make_row(self, root: QVBoxLayout, label_text: str) -> QLabel:
-        row = QHBoxLayout()
-        row.setSpacing(8)
+    def _make_context_grid(self) -> QGridLayout:
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
+        grid.addWidget(self._make_stat_tile(tr("streak.start_date"), self.start_value), 0, 0)
+        grid.addWidget(self._make_stat_tile(tr("metric.longest_streak"), self.longest_value), 0, 1)
+        grid.addWidget(self._make_stat_tile(tr("streak.yesterday"), self.yesterday_value), 1, 0)
+        grid.addWidget(self._make_stat_tile(tr("metric.today"), self.today_value), 1, 1)
+        return grid
 
+    def _make_stat_tile(self, label_text: str, value: QLabel) -> QFrame:
+        tile = QFrame()
+        tile.setStyleSheet(
+            """
+            QFrame {
+                background: #FAF9F6;
+                border: 0;
+                border-radius: 10px;
+            }
+            """
+        )
+        layout = QVBoxLayout(tile)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(3)
         label = QLabel(label_text)
-        label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 12px;")
-        value = QLabel()
-        value.setStyleSheet("font-size: 12px; font-weight: 650;")
+        label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 10px; font-weight: 800;")
+        value.setWordWrap(True)
+        value.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 720;")
+        layout.addWidget(label)
+        layout.addWidget(value)
+        return tile
 
-        row.addWidget(label)
-        row.addStretch(1)
-        row.addWidget(value)
-        root.addLayout(row)
-        return value
+
+def _status_text(metrics: SessionMetrics) -> str:
+    if metrics.today_reviews > 0:
+        return tr("streak.status_kept")
+    return tr("streak.status_need_today")
+
+
+def _cutoff_text(metrics: SessionMetrics) -> str:
+    cutoff_time = tr("streak.cutoff_time", hour=max(0, metrics.cutoff_hour))
+    if metrics.today_reviews > 0:
+        return tr("streak.cutoff_done", time=cutoff_time)
+    if metrics.seconds_until_cutoff > 0:
+        hours = metrics.seconds_until_cutoff // 3600
+        minutes = (metrics.seconds_until_cutoff % 3600) // 60
+        return tr("streak.cutoff_remaining", hours=hours, minutes=minutes)
+    return tr("streak.cutoff_need", time=cutoff_time)
 
 
 def make_streak_popover(metrics: SessionMetrics) -> StreakPopover:

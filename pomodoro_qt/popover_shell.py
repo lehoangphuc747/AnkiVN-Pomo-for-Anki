@@ -50,16 +50,20 @@ class PopoverShell(QFrame):
             }}
             """
         )
-        shadow = QGraphicsDropShadowEffect(self.surface)
-        shadow.setBlurRadius(28)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(62, 60, 56, 46))
-        self.surface.setGraphicsEffect(shadow)
+        if shadow_margin > 0:
+            shadow = QGraphicsDropShadowEffect(self.surface)
+            shadow.setBlurRadius(28)
+            shadow.setOffset(0, 8)
+            shadow.setColor(QColor(62, 60, 56, 46))
+            self.surface.setGraphicsEffect(shadow)
         wrapper.addWidget(self.surface)
 
         self.content_layout = QVBoxLayout(self.surface)
         self.content_layout.setContentsMargins(*margins)
         self.content_layout.setSpacing(spacing)
+
+    def clear_content(self) -> None:
+        _clear_layout(self.content_layout)
 
     def show_at(
         self,
@@ -87,3 +91,18 @@ class PopoverShell(QFrame):
         if horizontal_alignment == "center":
             return (anchor.width() - self._surface_width) // 2 + horizontal_offset
         return horizontal_offset
+
+
+def _clear_layout(layout) -> None:
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is not None:
+            widget.hide()
+            widget.setParent(None)
+            widget.deleteLater()
+            continue
+        child_layout = item.layout()
+        if child_layout is not None:
+            _clear_layout(child_layout)
+            child_layout.setParent(None)

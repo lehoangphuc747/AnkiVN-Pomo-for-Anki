@@ -7,15 +7,15 @@ import re
 from typing import Optional
 
 from aqt.qt import (
-    QColor,
     QComboBox,
     QFrame,
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
+    QIcon,
     QLabel,
     QLineEdit,
     QProgressBar,
     QPushButton,
+    QSize,
     QVBoxLayout,
     QWidget,
     Qt,
@@ -24,15 +24,21 @@ from aqt.qt import (
 from .i18n import tr
 from .popover_shell import PopoverShell
 from .style import COLORS, refresh_style
-from .ui_components import SYMBOL_PAUSE, SYMBOL_PLAY, SYMBOL_REPEAT, SYMBOL_SKIP_BACK, SYMBOL_SKIP_FORWARD, make_button
-
-
-SYMBOL_SHUFFLE = "\U0001f500"
+from .ui_components import (
+    LOOP_ICON_PATH,
+    NEXT_ICON_PATH,
+    PAUSE_ICON_PATH,
+    PLAY_ICON_PATH,
+    PREVIOUS_ICON_PATH,
+    SHUFFLE_ICON_PATH,
+    SOUNDCLOUD_ICON_PATH,
+    make_button,
+)
 
 
 class AudioPopover(PopoverShell):
     def __init__(self) -> None:
-        super().__init__(320, spacing=0)
+        super().__init__(320, spacing=0, shadow_margin=0)
         self._playing = False
         self._loop = False
         self._last_anchor: Optional[QWidget] = None
@@ -110,9 +116,10 @@ class AudioPopover(PopoverShell):
         )
         album_layout = QVBoxLayout(album)
         album_layout.setContentsMargins(0, 0, 0, 0)
-        album_icon = QLabel("\u266a")
+        album_icon = QLabel()
         album_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        album_icon.setStyleSheet("color: #D1D5DB; font-size: 28px; font-weight: 800; border: 0;")
+        album_icon.setPixmap(QIcon(str(SOUNDCLOUD_ICON_PATH)).pixmap(QSize(24, 24)))
+        album_icon.setStyleSheet("border: 0;")
         album_layout.addWidget(album_icon)
 
         text_box = QVBoxLayout()
@@ -279,11 +286,11 @@ class AudioPopover(PopoverShell):
         controls = QHBoxLayout()
         controls.setContentsMargins(8, 0, 8, 0)
         controls.setSpacing(12)
-        self.shuffle_button = self._transport_button(SYMBOL_SHUFFLE, tr("action.shuffle"), 32, 14)
-        self.previous_button = self._transport_button(SYMBOL_SKIP_BACK, tr("action.previous"), 32, 18)
+        self.shuffle_button = self._transport_button(SHUFFLE_ICON_PATH, tr("action.shuffle"), 32, 15)
+        self.previous_button = self._transport_button(PREVIOUS_ICON_PATH, tr("action.previous"), 32, 15)
         self.play_button = self._play_button()
-        self.next_button = self._transport_button(SYMBOL_SKIP_FORWARD, tr("action.next"), 32, 18)
-        self.loop_button = self._transport_button(SYMBOL_REPEAT, tr("action.loop"), 32, 15)
+        self.next_button = self._transport_button(NEXT_ICON_PATH, tr("action.next"), 32, 15)
+        self.loop_button = self._transport_button(LOOP_ICON_PATH, tr("action.loop"), 32, 15)
         controls.addWidget(self.shuffle_button)
         controls.addStretch(1)
         controls.addWidget(self.previous_button)
@@ -298,50 +305,47 @@ class AudioPopover(PopoverShell):
         label.setStyleSheet(f"font-size: 10px; font-weight: 800; color: {COLORS['muted']}; letter-spacing: 1px;")
         return label
 
-    def _transport_button(self, symbol: str, tooltip: str, size: int, font_size: int) -> QPushButton:
-        button = QPushButton(symbol)
+    def _transport_button(self, icon_path, tooltip: str, size: int, icon_size: int) -> QPushButton:
+        button = QPushButton("")
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setToolTip(tooltip)
         button.setFixedSize(size, size)
-        button.setStyleSheet(self._transport_style(COLORS["text"], "transparent", font_size))
+        button.setIcon(QIcon(str(icon_path)))
+        button.setIconSize(QSize(icon_size, icon_size))
+        button.setStyleSheet(self._transport_style("transparent"))
         return button
 
     def _play_button(self) -> QPushButton:
-        button = QPushButton(SYMBOL_PLAY)
+        button = QPushButton("")
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setToolTip(tr("tooltip.pause_resume"))
         button.setFixedSize(40, 40)
+        button.setIcon(QIcon(str(PLAY_ICON_PATH)))
+        button.setIconSize(QSize(17, 17))
         button.setStyleSheet(
             f"""
             QPushButton {{
-                background: {COLORS['red']};
-                color: white;
-                border: 0;
+                background: white;
+                border: 1px solid {COLORS['red']};
                 border-radius: 20px;
-                font-size: 17px;
-                font-weight: 800;
                 padding: 0;
             }}
             QPushButton:hover {{
-                background: {COLORS['red_dark']};
+                background: {COLORS['red_light']};
             }}
             """
         )
         return button
 
-    def _transport_style(self, color: str, background: str, font_size: int) -> str:
+    def _transport_style(self, background: str) -> str:
         return f"""
         QPushButton {{
             background: {background};
-            color: {color};
             border: 0;
             border-radius: 16px;
-            font-size: {font_size}px;
-            font-weight: 800;
             padding: 0;
         }}
         QPushButton:hover {{
-            color: {COLORS['red']};
             background: {COLORS['red_light'] if background != 'transparent' else 'transparent'};
         }}
         """
@@ -411,22 +415,16 @@ class AudioPopover(PopoverShell):
 
     def _set_playing(self, playing: bool) -> None:
         self._playing = playing
-        self.play_button.setText(SYMBOL_PAUSE if playing else SYMBOL_PLAY)
-        if playing:
-            shadow = QGraphicsDropShadowEffect(self.play_button)
-            shadow.setBlurRadius(18)
-            shadow.setOffset(0, 6)
-            shadow.setColor(QColor(217, 75, 67, 62))
-            self.play_button.setGraphicsEffect(shadow)
-        else:
-            self.play_button.setGraphicsEffect(None)
+        icon_path = PAUSE_ICON_PATH if playing else PLAY_ICON_PATH
+        self.play_button.setIcon(QIcon(str(icon_path)))
+        self.play_button.setIconSize(QSize(15 if playing else 17, 15 if playing else 17))
+        self.play_button.setGraphicsEffect(None)
         refresh_style(self.play_button)
 
     def _toggle_loop(self) -> None:
         self._loop = not self._loop
-        color = COLORS["red"] if self._loop else COLORS["text"]
         background = COLORS["red_light"] if self._loop else "transparent"
-        self.loop_button.setStyleSheet(self._transport_style(color, background, 15))
+        self.loop_button.setStyleSheet(self._transport_style(background))
         self.loop_button.setProperty("active", self._loop)
         refresh_style(self.loop_button)
 

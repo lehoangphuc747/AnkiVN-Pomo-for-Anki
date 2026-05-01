@@ -6,18 +6,24 @@ from .i18n import tr
 from .metric_popover import MetricPopover
 from .models import SessionMetrics
 from .style import COLORS
+from .ui_components import BRAIN_ICON_PATH
 
 
 class RetentionPopover(MetricPopover):
     def __init__(self, metrics: SessionMetrics) -> None:
         super().__init__(288)
+        self.refresh_data(metrics)
+
+    def refresh_data(self, metrics: SessionMetrics) -> None:
+        self.clear_content()
         correct_cards = metrics.good_cards + metrics.easy_cards + metrics.hard_cards
         self.add_header(
-            "R",
+            "",
             tr("metric.retention"),
             tr("common.percent", value=metrics.retention),
             tr("retention.subtitle"),
             COLORS["green"],
+            BRAIN_ICON_PATH,
         )
         self.add_progress(
             metrics.retention,

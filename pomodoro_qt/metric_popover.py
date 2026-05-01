@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout, Qt
+from pathlib import Path
+from typing import Optional
 
-from .i18n import tr
+from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QIcon, QLabel, QProgressBar, QSize, QVBoxLayout, Qt
+
 from .popover_shell import PopoverShell
 from .style import COLORS
 
@@ -18,7 +20,15 @@ class MetricPopover(PopoverShell):
     def __init__(self, width: int = 288) -> None:
         super().__init__(width, spacing=0)
 
-    def add_header(self, icon: str, eyebrow: str, title: str, subtitle: str, accent: str = COLORS["red"]) -> None:
+    def add_header(
+        self,
+        icon: str,
+        eyebrow: str,
+        title: str,
+        subtitle: str,
+        accent: str = COLORS["red"],
+        icon_path: Optional[Path] = None,
+    ) -> None:
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(8)
@@ -30,13 +40,19 @@ class MetricPopover(PopoverShell):
         eyebrow_row = QHBoxLayout()
         eyebrow_row.setContentsMargins(0, 0, 0, 0)
         eyebrow_row.setSpacing(6)
-        icon_label = QLabel(icon)
-        icon_label.setStyleSheet(f"color: {accent}; font-size: 13px; font-weight: 800;")
         eyebrow_label = QLabel(eyebrow)
         eyebrow_label.setStyleSheet(
             f"color: {accent}; font-size: 11px; font-weight: 800; letter-spacing: 1px;"
         )
-        eyebrow_row.addWidget(icon_label)
+        if icon_path is not None:
+            icon_label = QLabel()
+            icon_label.setPixmap(QIcon(str(icon_path)).pixmap(QSize(14, 14)))
+            icon_label.setFixedSize(14, 14)
+            eyebrow_row.addWidget(icon_label)
+        elif icon:
+            icon_label = QLabel(icon)
+            icon_label.setStyleSheet(f"color: {accent}; font-size: 13px; font-weight: 800;")
+            eyebrow_row.addWidget(icon_label)
         eyebrow_row.addWidget(eyebrow_label)
         eyebrow_row.addStretch(1)
 
@@ -50,30 +66,7 @@ class MetricPopover(PopoverShell):
         title_box.addWidget(title_label)
         title_box.addWidget(subtitle_label)
 
-        close_button = QPushButton("×")
-        close_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        close_button.setFixedSize(22, 22)
-        close_button.setToolTip(tr("common.close"))
-        close_button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background: transparent;
-                border: 0;
-                color: {COLORS['muted_light']};
-                font-size: 17px;
-                font-weight: 600;
-                padding: 0;
-            }}
-            QPushButton:hover {{
-                color: {COLORS['red']};
-                background: transparent;
-            }}
-            """
-        )
-        close_button.clicked.connect(self.hide)
-
         header.addLayout(title_box, 1)
-        header.addWidget(close_button, 0, Qt.AlignmentFlag.AlignTop)
         self.content_layout.addLayout(header)
         self.content_layout.addSpacing(14)
 
@@ -123,7 +116,7 @@ class MetricPopover(PopoverShell):
                 value_color = COLORS["text"]
             else:
                 label_text, value_text, value_color = row_data
-            rows_box.addLayout(self._make_row(label_text, value_text, value_color))
+            rows_box.addWidget(self._make_row(label_text, value_text, value_color))
         self.content_layout.addLayout(rows_box)
 
     def add_footer(self, text: str) -> None:
@@ -160,6 +153,7 @@ class MetricPopover(PopoverShell):
         detail: str,
         color: str,
         is_last: bool = False,
+        marker_icon_path: Optional[Path] = None,
     ) -> None:
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -171,15 +165,19 @@ class MetricPopover(PopoverShell):
         circle = QLabel(marker)
         circle.setFixedSize(24, 24)
         circle.setAlignment(ALIGN_CENTER)
-        circle.setStyleSheet(
-            f"""
-            background: {color};
-            color: white;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 800;
-            """
-        )
+        if marker_icon_path is not None:
+            circle.setPixmap(QIcon(str(marker_icon_path)).pixmap(QSize(24, 24)))
+            circle.setStyleSheet("background: transparent; border: 0;")
+        else:
+            circle.setStyleSheet(
+                f"""
+                background: {color};
+                color: white;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 800;
+                """
+            )
         marker_box.addWidget(circle, 0, ALIGN_CENTER)
         if not is_last:
             connector = QFrame()
@@ -213,9 +211,19 @@ class MetricPopover(PopoverShell):
         if not is_last:
             self.content_layout.addSpacing(4)
 
-    def _make_row(self, label_text: str, value_text: str, value_color: str) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
+    def _make_row(self, label_text: str, value_text: str, value_color: str) -> QFrame:
+        row_frame = QFrame()
+        row_frame.setStyleSheet(
+            f"""
+            QFrame {{
+                background: #FAF9F6;
+                border: 0;
+                border-radius: 8px;
+            }}
+            """
+        )
+        row = QHBoxLayout(row_frame)
+        row.setContentsMargins(10, 7, 10, 7)
         row.setSpacing(8)
         label = QLabel(label_text)
         value = QLabel(value_text)
@@ -225,7 +233,7 @@ class MetricPopover(PopoverShell):
         row.addWidget(label)
         row.addStretch(1)
         row.addWidget(value)
-        return row
+        return row_frame
 
     def _stat_tile(self, label_text: str, value_text: str) -> QFrame:
         tile = QFrame()
