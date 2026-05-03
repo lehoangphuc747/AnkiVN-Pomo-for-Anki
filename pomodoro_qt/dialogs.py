@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import QDialog, QHBoxLayout, QVBoxLayout, QWidget
 
-from .i18n import tr
+from .i18n import format_number, tr
 from .models import MODE_BREAK, MODE_POMODORO, PomodoroSettings, SessionMetrics
 from .style import COLORS
 from .ui_components import ALIGN_CENTER, make_button, make_label, set_addon_window_icon
@@ -32,9 +32,9 @@ class PomodoroDoneDialog(QDialog):
         subtitle = make_label(
             tr(
                 "dialog.done_subtitle",
-                cards=metrics.session_cards,
-                retention=metrics.session_retention,
-                xp=metrics.session_xp,
+                cards=format_number(metrics.session_cards),
+                retention=format_number(metrics.session_retention),
+                xp=format_number(metrics.session_xp),
             ),
             "muted",
         )
@@ -46,7 +46,7 @@ class PomodoroDoneDialog(QDialog):
         actions = QHBoxLayout()
         actions.setSpacing(16)
         keep_going = make_button(tr("action.keep_going"), "secondary")
-        take_break = make_button(tr("action.take_break", minutes=settings.break_minutes), "primary")
+        take_break = make_button(tr("action.take_break", minutes=format_number(settings.break_minutes)), "primary")
         end_session = make_button(tr("action.end"), "secondary")
         actions.addStretch(1)
         actions.addWidget(keep_going)
@@ -88,7 +88,7 @@ class BreakDoneDialog(QDialog):
         title = make_label(tr("dialog.break_done_title"))
         title.setAlignment(ALIGN_CENTER)
         title.setStyleSheet(f"font-size: 42px; font-weight: 650; color: {COLORS['green']};")
-        subtitle = make_label(tr("dialog.break_done_subtitle", minutes=settings.pomodoro_minutes), "muted")
+        subtitle = make_label(tr("dialog.break_done_subtitle", minutes=format_number(settings.pomodoro_minutes)), "muted")
         subtitle.setAlignment(ALIGN_CENTER)
         subtitle.setStyleSheet("font-size: 15px; font-weight: 550; color: #6B6661;")
         root.addWidget(title)
@@ -96,7 +96,7 @@ class BreakDoneDialog(QDialog):
 
         actions = QHBoxLayout()
         actions.setSpacing(16)
-        start_pomodoro = make_button(tr("action.start_pomodoro", minutes=settings.pomodoro_minutes), "primary")
+        start_pomodoro = make_button(tr("action.start_pomodoro", minutes=format_number(settings.pomodoro_minutes)), "primary")
         end_session = make_button(tr("action.end"), "secondary")
         actions.addStretch(1)
         actions.addWidget(start_pomodoro)

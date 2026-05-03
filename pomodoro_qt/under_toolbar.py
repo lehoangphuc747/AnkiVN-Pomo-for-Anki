@@ -6,8 +6,12 @@ from typing import Iterable
 
 from aqt.qt import QFrame, QHBoxLayout, QProgressBar, QPushButton, QSizePolicy, QVBoxLayout, QWidget, Qt
 
-from .i18n import tr
+from .i18n import format_number, tr
+from .cards_metric import CardsStudiedMetrics
+from .experience_metric import ExperienceMetrics
 from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
+from .retention_metric import RetentionMetrics
+from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import (
     ALIGN_CENTER,
@@ -32,9 +36,20 @@ from .ui_components import (
 
 
 class UnderToolbarWidget(QFrame):
-    def __init__(self, metrics: SessionMetrics) -> None:
+    def __init__(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         super().__init__()
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self.setProperty("panel", "under")
         self.setFixedHeight(64)
 
@@ -57,7 +72,7 @@ class UnderToolbarWidget(QFrame):
         metrics_row.setSpacing(6)
         metrics_row.setContentsMargins(0, 0, 0, 0)
         self.experience_button = make_toolbar_metric_button(
-            self._experience_text(metrics),
+            self._experience_text(experience_metrics),
             COLORS["text"],
             tr("tooltip.experience"),
             650,
@@ -65,7 +80,7 @@ class UnderToolbarWidget(QFrame):
         self.experience_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         set_button_icon(self.experience_button, GROWTH_ICON_PATH, 17)
         self.streak_button = make_toolbar_metric_button(
-            self._streak_text(metrics),
+            self._streak_text(streak_metrics),
             COLORS["red"],
             tr("tooltip.streak"),
             700,
@@ -73,12 +88,12 @@ class UnderToolbarWidget(QFrame):
         self.streak_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         set_button_icon(self.streak_button, FIRE_ICON_PATH, 17)
         self.cards_button = make_toolbar_metric_button(
-            self._cards_text(metrics), COLORS["yellow"], tr("tooltip.cards")
+            self._cards_text(cards_metrics), COLORS["yellow"], tr("tooltip.cards")
         )
         self.cards_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         set_button_icon(self.cards_button, BOLT_ICON_PATH, 17)
         self.retention_button = make_toolbar_metric_button(
-            tr("common.percent", value=metrics.retention), COLORS["pink"], tr("tooltip.retention"), 650
+            tr("common.percent", value=format_number(retention_metrics.today_retention)), COLORS["pink"], tr("tooltip.retention"), 650
         )
         set_button_icon(self.retention_button, BRAIN_ICON_PATH, 17)
 
@@ -100,6 +115,7 @@ class UnderToolbarWidget(QFrame):
         self.progress.setTextVisible(False)
         self.progress.setFixedWidth(144)
         self.progress.setFixedHeight(7)
+        self._set_progress_accent(COLORS["red"])
         center.addWidget(self.timer_label, 0, ALIGN_CENTER)
         center.addWidget(self.progress, 0, ALIGN_CENTER)
 
@@ -169,18 +185,30 @@ class UnderToolbarWidget(QFrame):
         self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.timer_label.setText(state.time_text)
         self.progress.setValue(int(state.progress * 1000))
+        self._set_progress_accent(state.accent)
         set_accent_property(self.mode_label, state.accent)
         set_accent_property(self.timer_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused)
         self.stop_button.setVisible(state.started)
 
-    def refresh_metrics(self, metrics: SessionMetrics) -> None:
+    def refresh_metrics(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self.session_button.setText("")
-        self.experience_button.setText(self._experience_text(metrics))
-        self.streak_button.setText(self._streak_text(metrics))
-        self.retention_button.setText(tr("common.percent", value=metrics.retention))
-        self.cards_button.setText(self._cards_text(metrics))
+        self.experience_button.setText(self._experience_text(experience_metrics))
+        self.streak_button.setText(self._streak_text(streak_metrics))
+        self.retention_button.setText(tr("common.percent", value=format_number(retention_metrics.today_retention)))
+        self.cards_button.setText(self._cards_text(cards_metrics))
 
     def metric_buttons(self) -> Iterable[QPushButton]:
         return [
@@ -191,14 +219,31 @@ class UnderToolbarWidget(QFrame):
             self.session_button,
         ]
 
-    def _experience_text(self, metrics: SessionMetrics) -> str:
-        return str(max(0, metrics.level))
+    def _experience_text(self, metrics: ExperienceMetrics) -> str:
+        return format_number(max(0, metrics.level))
 
-    def _streak_text(self, metrics: SessionMetrics) -> str:
-        return str(max(0, metrics.streak_days))
+    def _streak_text(self, metrics: StreakMetrics) -> str:
+        return format_number(max(0, metrics.days))
 
-    def _cards_text(self, metrics: SessionMetrics) -> str:
-        return str(max(0, metrics.cards))
+    def _cards_text(self, metrics: CardsStudiedMetrics) -> str:
+        return format_number(max(0, metrics.cards))
+
+    def _set_progress_accent(self, color: str) -> None:
+        self.progress.setStyleSheet(
+            f"""
+            QProgressBar {{
+                background: {COLORS['border']};
+                border: 0;
+                border-radius: 3px;
+                height: 6px;
+                text-align: center;
+            }}
+            QProgressBar::chunk {{
+                background: {color};
+                border-radius: 3px;
+            }}
+            """
+        )
 
     def _brand_text(self) -> str:
         return f"<span style='color:{COLORS['text']}'>Pomo</span><span style='color:{COLORS['red']}'>VN</span>"

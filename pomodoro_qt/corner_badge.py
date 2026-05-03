@@ -10,8 +10,12 @@ from typing import Optional
 
 from aqt.qt import QColor, QFrame, QHBoxLayout, QPoint, QTimer, Qt, pyqtSignal
 
-from .i18n import current_language, tr
+from .i18n import current_language, format_number, tr
+from .cards_metric import CardsStudiedMetrics
+from .experience_metric import ExperienceMetrics
 from .models import PomodoroTimerState, SessionMetrics
+from .retention_metric import RetentionMetrics
+from .streak_metric import StreakMetrics
 
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -26,9 +30,20 @@ class HtmlCornerBadgeWidget(QFrame):
     action_requested = pyqtSignal(str)
     moved = pyqtSignal(int, int)
 
-    def __init__(self, metrics: SessionMetrics) -> None:
+    def __init__(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         super().__init__()
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self._saved_position: Optional[QPoint] = None
         self._drag_origin: Optional[QPoint] = None
         self._ready = False
@@ -37,7 +52,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
         self.setObjectName("HtmlCornerBadgeWidget")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(210, 296)
+        self.setFixedSize(204, 312)
 
         self.web = self._make_webview()
         self.web.setObjectName("PomodoroCornerBadgeWeb")
@@ -64,8 +79,19 @@ class HtmlCornerBadgeWidget(QFrame):
         self._last_state = state
         self._send_state()
 
-    def refresh_metrics(self, metrics: SessionMetrics) -> None:
+    def refresh_metrics(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self._send_state()
 
     def showEvent(self, event) -> None:  # noqa: N802 - Qt override
@@ -79,7 +105,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
     def resize_for_audio(self, expanded: bool) -> None:
         self._expanded_audio = expanded
-        self.setFixedSize(210, 496 if expanded else 296)
+        self.setFixedSize(204, 492 if expanded else 312)
         self._move_clamped(self.pos())
 
     def _make_webview(self):
@@ -131,10 +157,13 @@ class HtmlCornerBadgeWidget(QFrame):
         bolt_icon_src = _svg_data_uri(ICON_DIR / "bolt-svgrepo-com.svg")
         growth_icon_src = _svg_data_uri(ICON_DIR / "idea-svgrepo-com.svg")
         fire_icon_src = _svg_data_uri(ICON_DIR / "fire-svgrepo-com.svg")
+        brain_icon_src = _svg_data_uri(ICON_DIR / "brain-svgrepo-com.svg")
+        history_icon_src = _svg_data_uri(ICON_DIR / "history.svg")
         values = {
             "html_lang": current_language(),
             "corner_aria": tr("corner.aria"),
             "tooltip_drag_corner": tr("tooltip.drag_corner"),
+            "tooltip_session_history": tr("tooltip.session_history"),
             "mode_pomodoro": tr("mode.pomodoro"),
             "level_short": tr("metric.level_short"),
             "tooltip_pause_resume": tr("tooltip.pause_resume"),
@@ -151,7 +180,7 @@ class HtmlCornerBadgeWidget(QFrame):
             "action_next": tr("action.next"),
             "action_loop": tr("action.loop"),
             "audio_inline_support": tr("audio.inline_support"),
-            "streak_initial": tr("metric.day_short", count=0),
+            "streak_initial": tr("metric.day_short", count=format_number(0)),
             "streak_caption_initial": tr("streak.status_start"),
             "tomato_icon_src": tomato_icon_src,
             "play_icon_src": play_icon_src,
@@ -166,6 +195,8 @@ class HtmlCornerBadgeWidget(QFrame):
             "bolt_icon_src": bolt_icon_src,
             "growth_icon_src": growth_icon_src,
             "fire_icon_src": fire_icon_src,
+            "brain_icon_src": brain_icon_src,
+            "history_icon_src": history_icon_src,
         }
         for key, value in values.items():
             template = template.replace("{{" + key + "}}", html.escape(str(value), quote=True))
@@ -180,6 +211,10 @@ class HtmlCornerBadgeWidget(QFrame):
             return
         state = self._last_state
         metrics = self.metrics
+        experience_metrics = self.experience_metrics
+        cards_metrics = self.cards_metrics
+        retention_metrics = self.retention_metrics
+        streak_metrics = self.streak_metrics
         mode_label = tr("mode.break_time") if state.mode == "break" else tr("mode.pomodoro")
         payload = {
             "mode": state.mode,
@@ -189,8 +224,8 @@ class HtmlCornerBadgeWidget(QFrame):
             "accent": state.accent,
             "paused": state.paused,
             "started": state.started,
-            "streakText": tr("metric.day_short", count=metrics.streak_days),
-            "streakCaption": _streak_caption(metrics),
+            "streakText": tr("metric.day_short", count=format_number(streak_metrics.days)),
+            "streakCaption": _streak_caption(streak_metrics),
             "labels": {
                 "levelShort": tr("metric.level_short"),
                 "pomodoro": tr("mode.pomodoro"),
@@ -199,15 +234,21 @@ class HtmlCornerBadgeWidget(QFrame):
             "metrics": {
                 "sessionIndex": metrics.session_index,
                 "sessionTotal": metrics.session_total,
-                "xpCurrent": metrics.xp_current,
-                "xpGoal": metrics.xp_goal,
-                "totalXp": metrics.total_xp,
-                "level": metrics.level,
-                "nextLevelXp": metrics.next_level_xp,
-                "levelProgress": metrics.level_progress,
-                "cards": metrics.cards,
-                "retention": metrics.retention,
-                "streakDays": metrics.streak_days,
+                "xpCurrent": experience_metrics.experience,
+                "xpGoal": experience_metrics.next_level_experience,
+                "totalXp": experience_metrics.experience,
+                "level": experience_metrics.level,
+                "nextLevelXp": experience_metrics.next_level_experience,
+                "levelProgress": experience_metrics.level_progress,
+                "cards": cards_metrics.cards,
+                "retention": retention_metrics.today_retention,
+                "streakDays": streak_metrics.days,
+            },
+            "metricsText": {
+                "level": format_number(experience_metrics.level),
+                "cards": format_number(cards_metrics.cards),
+                "retention": tr("common.percent", value=format_number(retention_metrics.today_retention)),
+                "streakDays": format_number(streak_metrics.days),
             },
         }
         self._eval_js(f"window.PomodoroUI && window.PomodoroUI.update({json.dumps(payload)});")
@@ -271,9 +312,9 @@ def _svg_data_uri(path: Path) -> str:
     return f"data:image/svg+xml;base64,{encoded}"
 
 
-def _streak_caption(metrics: SessionMetrics) -> str:
-    if metrics.today_cards > 0:
+def _streak_caption(metrics: StreakMetrics) -> str:
+    if metrics.today_reviews > 0:
         return tr("streak.status_kept")
-    if metrics.streak_days > 0:
+    if metrics.days > 0:
         return tr("streak.status_need_today")
     return tr("streak.status_start")

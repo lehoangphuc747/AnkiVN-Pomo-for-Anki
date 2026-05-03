@@ -13,9 +13,11 @@ from .cards_studied import make_cards_studied_popover
 from .config_store import ConfigStore
 from .dialogs import BreakDoneDialog, CHOICE_END, PomodoroDoneDialog
 from .experience import make_experience_popover
+from .experience_metric import ExperienceMetrics, level_state
 from .i18n import set_language, tr
 from .models import MODE_BREAK, MODE_POMODORO, PomodoroSettings, SessionMetrics, TimerRuntimeState
 from .retention import make_retention_popover
+from .revlog_metrics import RevlogMetricsSource
 from .session_history import make_session_history_popover
 from .session_manager import PomodoroSessionManager
 from .settings_dialog import SettingsDialog
@@ -41,8 +43,10 @@ class PomodoroAddonController:
 
         self.data_store = PomodoroDataStore(mw, addon_package)
         self.analytics_store = PomodoroAnalyticsStore(mw, addon_package)
+        self.revlog_metrics_source = RevlogMetricsSource(mw)
         self.session_manager = PomodoroSessionManager(self.data_store, self.analytics_store)
         self.metrics = self.session_manager.metrics()
+        self._apply_revlog_metrics()
         self.timer = PomodoroTimer(self.settings)
         self.timer.restore_state(self.session_manager.timer_state())
         self.tracker = ReviewTracker(self._on_review_answered, self._deck_name_for_id)
@@ -84,7 +88,15 @@ class PomodoroAddonController:
         if self._setup_done:
             return
         self._setup_done = True
-        self.ui.build(self.settings, self.metrics, self.session_manager.audio_state())
+        self.ui.build(
+            self.settings,
+            self.metrics,
+            self.experience_metrics,
+            self.cards_metrics,
+            self.retention_metrics,
+            self.streak_metrics,
+            self.session_manager.audio_state(),
+        )
         self._connect_timer()
         self._sync_timer_state()
         self._mark_timer_started_if_running()
@@ -102,16 +114,9 @@ class PomodoroAddonController:
         dialog.import_requested.connect(lambda: self._import_backup_from_dialog(dialog))
         dialog.reset_data_requested.connect(lambda: self._reset_study_data_from_dialog(dialog))
         dialog.reset_all_requested.connect(lambda: self._reset_all_from_dialog(dialog))
+        dialog.apply_requested.connect(lambda: self._apply_settings_from_dialog(dialog))
         if _dialog_accepted(dialog):
-            self._save_runtime_state()
-            self.settings = dialog.to_settings(self.settings)
-            set_language(self.settings.language)
-            if not self.config_store.save(self.settings):
-                self._warn_config_failure_if_needed()
-            self.timer.apply_settings(self.settings)
-            self._update_menu_text()
-            self._rebuild_ui()
-            self.update_visibility()
+            self._apply_settings_from_dialog(dialog)
 
     def _import_backup_from_dialog(self, dialog: SettingsDialog) -> None:
         if self.backup_manager.import_backup(dialog):
@@ -124,6 +129,17 @@ class PomodoroAddonController:
     def _reset_all_from_dialog(self, dialog: SettingsDialog) -> None:
         if self._reset_data(dialog, reset_settings=True):
             dialog.reject()
+
+    def _apply_settings_from_dialog(self, dialog: SettingsDialog) -> None:
+        self._save_runtime_state()
+        self.settings = dialog.to_settings(self.settings)
+        set_language(self.settings.language)
+        if not self.config_store.save(self.settings):
+            self._warn_config_failure_if_needed()
+        self.timer.apply_settings(self.settings)
+        self._update_menu_text()
+        self._rebuild_ui()
+        self.update_visibility()
 
     def _connect_timer(self) -> None:
         self.timer.changed.connect(self._sync_timer_state)
@@ -255,6 +271,7 @@ class PomodoroAddonController:
 
     def _on_review_answered(self, event) -> None:
         self.metrics = self.session_manager.record_answer(event)
+        self.revlog_metrics_source.note_review_answered(getattr(event, "ease", None))
         self._warn_storage_failure_if_needed()
         self._display_metrics()
 
@@ -271,27 +288,67 @@ class PomodoroAddonController:
         self._display_metrics()
 
     def _display_metrics(self) -> None:
-        self.ui.refresh_metrics(self.metrics)
+        self._apply_revlog_metrics()
+        self.ui.refresh_metrics(
+            self.metrics,
+            self.experience_metrics,
+            self.cards_metrics,
+            self.retention_metrics,
+            self.streak_metrics,
+        )
 
     def _make_metric_popover(self, name: str):
         if name == "session":
             return make_session_history_popover(self.metrics, self.session_manager.history_popover_snapshot())
         if name == "experience":
-            return make_experience_popover(self.metrics)
+            return make_experience_popover(self.experience_metrics)
         if name == "cards":
-            return make_cards_studied_popover(self.metrics)
+            return make_cards_studied_popover(self.cards_metrics)
         if name == "retention":
-            return make_retention_popover(self.metrics)
+            return make_retention_popover(self.retention_metrics)
         if name == "streak":
-            return make_streak_popover(self.metrics)
+            return make_streak_popover(self.streak_metrics)
         return None
 
     def _refresh_metric_popover(self, name: str, popover) -> None:
         if name == "session":
             popover.refresh_data(self.metrics, self.session_manager.history_popover_snapshot())
             return
+        if name == "streak":
+            popover.refresh_data(self.streak_metrics)
+            return
+        if name == "experience":
+            popover.refresh_data(self.experience_metrics)
+            return
+        if name == "retention":
+            popover.refresh_data(self.retention_metrics)
+            return
+        if name == "cards":
+            popover.refresh_data(self.cards_metrics)
+            return
         if hasattr(popover, "refresh_data"):
             popover.refresh_data(self.metrics)
+
+    def _apply_revlog_metrics(self) -> None:
+        snapshot = self.revlog_metrics_source.metrics()
+        self.cards_metrics = snapshot.cards
+        total_experience = max(0, snapshot.experience.experience) + max(0, self.metrics.total_xp)
+        level = level_state(total_experience)
+        self.experience_metrics = ExperienceMetrics(
+            level=level["level"],
+            experience=total_experience,
+            level_floor_experience=level["floor_experience"],
+            next_level_experience=level["next_level_experience"],
+            experience_to_next_level=level["experience_to_next_level"],
+            level_progress=level["progress"],
+            streak_days=snapshot.experience.streak_days,
+            again_cards=snapshot.experience.again_cards,
+            hard_cards=snapshot.experience.hard_cards,
+            good_cards=snapshot.experience.good_cards,
+            easy_cards=snapshot.experience.easy_cards,
+        )
+        self.retention_metrics = snapshot.retention
+        self.streak_metrics = snapshot.streak
 
     def _deck_name_for_id(self, deck_id: Optional[int]) -> str:
         if deck_id is None:
@@ -331,6 +388,8 @@ class PomodoroAddonController:
             raise RuntimeError(self.analytics_store.last_error)
         self.session_manager = PomodoroSessionManager(self.data_store, self.analytics_store)
         self.metrics = self.session_manager.metrics()
+        self.revlog_metrics_source = RevlogMetricsSource(self.mw)
+        self._apply_revlog_metrics()
         self.timer.apply_settings(self.settings)
         self.timer.restore_state(self.session_manager.timer_state())
         self._last_timer_signature = None
@@ -366,6 +425,8 @@ class PomodoroAddonController:
         self.tracker.on_reviewer_end()
         self.session_manager = PomodoroSessionManager(self.data_store, self.analytics_store)
         self.metrics = self.session_manager.metrics()
+        self.revlog_metrics_source = RevlogMetricsSource(self.mw)
+        self._apply_revlog_metrics()
         self._last_completed_metrics = None
         self._last_timer_signature = None
         self.timer.apply_settings(self.settings)
@@ -379,7 +440,15 @@ class PomodoroAddonController:
         return True
 
     def _rebuild_ui(self) -> None:
-        self.ui.rebuild(self.settings, self.metrics, self.session_manager.audio_state())
+        self.ui.rebuild(
+            self.settings,
+            self.metrics,
+            self.experience_metrics,
+            self.cards_metrics,
+            self.retention_metrics,
+            self.streak_metrics,
+            self.session_manager.audio_state(),
+        )
         self._sync_timer_state()
         self._mark_timer_started_if_running()
 

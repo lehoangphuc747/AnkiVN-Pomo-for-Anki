@@ -1,4 +1,12 @@
 __pycache__/
 *.pyc
+*.pyo
+*.log
+*.tmp
+*.bak
+*.sqlite
+*.sqlite3
+*.ankiaddon
+ankiaddon_dist/
 pomodoro_qt_state.json
 pomodoro_qt.db

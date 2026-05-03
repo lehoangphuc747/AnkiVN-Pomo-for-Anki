@@ -9,49 +9,44 @@
 </head>
 <body>
   <section id="corner-badge" class="corner-badge" aria-label="{{corner_aria}}">
-    <div id="drag-handle" class="drag-handle" title="{{tooltip_drag_corner}}">
-      <span></span>
+    <div id="drag-handle" class="badge-header" title="{{tooltip_drag_corner}}">
+      <div class="brand-lockup">
+        <img src="{{tomato_icon_src}}" alt="" class="brand-logo" />
+        <span class="brand-word"><span>Pomo</span><span>VN</span></span>
+      </div>
+      <span class="drag-grip" aria-hidden="true"></span>
     </div>
 
-    <div class="timer-row">
-      <div class="ring" aria-hidden="true">
-        <svg viewBox="0 0 36 36">
-          <circle class="ring-bg" cx="18" cy="18" r="16"></circle>
-          <circle id="ring-progress" class="ring-progress" cx="18" cy="18" r="16"></circle>
-        </svg>
+    <div class="timer-stage">
+      <div class="timer-circle">
+        <span id="timer-text" class="timer-text">25:00</span>
       </div>
-      <div class="timer-copy">
-        <div id="mode-label" class="mode-label"><img src="{{tomato_icon_src}}" alt="" class="brand-logo" /><span id="mode-text">{{mode_pomodoro}}</span></div>
-        <div id="timer-text" class="timer-text">25:00</div>
-      </div>
+      <div id="mode-text" class="mode-label">{{mode_pomodoro}}</div>
     </div>
 
-    <div class="soft-divider"></div>
-
-    <button class="session-row" data-action="session" type="button">
-      <span id="session-text">{{mode_pomodoro}} 1</span>
-    </button>
-
-    <div class="xp-block">
-      <div class="xp-row">
-        <button id="experience-button" data-action="experience" type="button" class="text-button">
-          <img id="experience-icon" src="{{growth_icon_src}}" alt="" class="metric-icon" />
-          <span class="experience-copy">
-            <strong id="experience-level">{{level_short}} 1</strong>
-            <span id="experience-xp">0 / 20 XP</span>
-          </span>
-        </button>
-        <button id="cards-button" data-action="cards" type="button" class="text-button red">
-          <img id="cards-icon" src="{{bolt_icon_src}}" alt="" class="metric-icon" />
-          <span id="cards-count">+0</span>
-        </button>
-      </div>
-      <div class="mini-progress"><span id="xp-progress"></span></div>
+    <div class="metric-grid">
+      <button id="experience-button" data-action="experience" type="button" class="metric-chip metric-level">
+        <span id="experience-level">1</span>
+        <img src="{{growth_icon_src}}" alt="" class="metric-icon" />
+      </button>
+      <button id="cards-button" data-action="cards" type="button" class="metric-chip metric-cards">
+        <span id="cards-count">0</span>
+        <img src="{{bolt_icon_src}}" alt="" class="metric-icon" />
+      </button>
+      <button id="streak-button" data-action="streak" type="button" class="metric-chip metric-streak">
+        <span id="streak-text">0</span>
+        <img src="{{fire_icon_src}}" alt="" class="metric-icon" />
+      </button>
+      <button id="retention-button" data-action="retention" type="button" class="metric-chip metric-retention">
+        <span id="retention-text">0%</span>
+        <img src="{{brain_icon_src}}" alt="" class="metric-icon" />
+      </button>
     </div>
 
     <div class="controls">
       <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="control-icon" /></button>
       <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden><img src="{{stop_icon_src}}" alt="" class="control-icon" /></button>
+      <button id="session-button" data-action="session" type="button" title="{{tooltip_session_history}}"><img src="{{history_icon_src}}" alt="" class="control-icon" /></button>
       <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}"><img src="{{soundcloud_icon_src}}" alt="" class="control-icon" /></button>
       <button data-action="settings" type="button" title="{{tooltip_settings}}"><img src="{{settings_icon_src}}" alt="" class="control-icon" /></button>
     </div>
@@ -79,13 +74,6 @@
       <p>{{audio_inline_support}}</p>
     </div>
 
-    <button id="streak-button" data-action="streak" type="button" class="footer-row">
-      <span class="streak-flame"><img src="{{fire_icon_src}}" alt="" class="metric-icon" /></span>
-      <span class="streak-copy">
-        <strong id="streak-text">{{streak_initial}}</strong>
-        <span id="streak-caption">{{streak_caption_initial}}</span>
-      </span>
-    </button>
   </section>
 
   <script>

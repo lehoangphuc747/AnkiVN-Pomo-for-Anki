@@ -27,6 +27,17 @@ def current_language() -> str:
     return _current_language
 
 
+def format_number(value: object) -> str:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = 0
+    text = f"{number:,}"
+    if current_language() == "vi":
+        return text.replace(",", ".")
+    return text
+
+
 def available_languages() -> list[tuple[str, str]]:
     languages = []
     for path in sorted(LOCALE_DIR.glob("*.json")):

@@ -152,7 +152,7 @@ def make_primary_pause_button() -> QPushButton:
     button = make_button("", "primaryPause", tr("tooltip.pause_resume"))
     button.setIcon(QIcon(str(PLAY_ICON_PATH)))
     button.setIconSize(QSize(16, 16))
-    button.setFixedSize(50, 36)
+    button.setFixedSize(36, 36)
     button.setStyleSheet(_primary_pause_style())
     return button
 
@@ -336,27 +336,83 @@ def _svg_data_uri(path: Path) -> str:
     return f"data:image/svg+xml;base64,{encoded}"
 
 
-def make_sidebar_metric_button(label: str, value: str, tooltip: str = "", color: Optional[str] = None) -> QPushButton:
-    button = make_button(f"{label:<14}{value}", "metric", tooltip)
-    text_color = color or COLORS["text"]
-    button.setStyleSheet(
-        f"""
-        QPushButton {{
-            color: {text_color};
-            background: transparent;
-            border: 0;
-            border-radius: 12px;
-            padding: 6px 8px;
-            font-size: 13px;
-            text-align: left;
-        }}
-        QPushButton:hover {{
-            background: {COLORS['soft']};
-            border-radius: 12px;
-        }}
-        """
-    )
-    return button
+class SidebarMetricButton(QPushButton):
+    def __init__(
+        self,
+        label: str,
+        value: str,
+        tooltip: str = "",
+        color: Optional[str] = None,
+        icon_path: Optional[Path] = None,
+        icon_size: int = 13,
+    ) -> None:
+        super().__init__()
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(WIDGET_NO_FOCUS)
+        self.setProperty("role", "metric")
+        if tooltip:
+            self.setToolTip(tooltip)
+
+        text_color = color or COLORS["text"]
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(8)
+
+        self.icon_label = QLabel()
+        self.icon_label.setFixedSize(16, 16)
+        self.icon_label.setAlignment(ALIGN_CENTER)
+        if icon_path is not None:
+            self.icon_label.setPixmap(QIcon(str(icon_path)).pixmap(icon_size, icon_size))
+        layout.addWidget(self.icon_label)
+
+        self.label = QLabel(label)
+        self.label.setMinimumHeight(20)
+        self.label.setWordWrap(False)
+        self.label.setStyleSheet(
+            f"color: {COLORS['muted']}; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 600;"
+        )
+        layout.addWidget(self.label, 1)
+
+        self.value = QLabel(value)
+        self.value.setFixedWidth(66)
+        self.value.setMinimumHeight(20)
+        self.value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.value.setStyleSheet(
+            f"color: {text_color}; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700;"
+        )
+        layout.addWidget(self.value)
+        self.setMinimumHeight(36)
+
+        self.setStyleSheet(
+            f"""
+            QPushButton {{
+                color: {text_color};
+                background: transparent;
+                border: 0;
+                border-radius: 12px;
+                padding: 0;
+                text-align: left;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['soft']};
+                border-radius: 12px;
+            }}
+            """
+        )
+
+    def set_value(self, value: str) -> None:
+        self.value.setText(value)
+
+
+def make_sidebar_metric_button(
+    label: str,
+    value: str,
+    tooltip: str = "",
+    color: Optional[str] = None,
+    icon_path: Optional[Path] = None,
+    icon_size: int = 13,
+) -> SidebarMetricButton:
+    return SidebarMetricButton(label, value, tooltip, color, icon_path, icon_size)
 
 
 def make_audio_mini_button(text: str) -> QPushButton:
@@ -407,16 +463,17 @@ def _icon_button_style(color: str, font_size: int) -> str:
 def _primary_pause_style() -> str:
     return f"""
     QPushButton {{
-        background: {COLORS['red']};
-        color: white;
-        border: 0;
+        background: transparent;
+        color: {COLORS['text']};
+        border: 1px solid {COLORS['border']};
         border-radius: 10px;
         font-size: 16px;
         font-weight: 700;
         padding: 0;
     }}
     QPushButton:hover {{
-        background: {COLORS['red_dark']};
+        background: {COLORS['soft']};
+        border: 1px solid {COLORS['border']};
         border-radius: 10px;
     }}
     """

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, Qt
 
-from .i18n import tr
-from .models import SessionMetrics
+from .i18n import format_number, tr
 from .popover_shell import PopoverShell
+from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import FIRE_ICON_PATH, make_icon_label
 
@@ -18,12 +18,12 @@ POPOVER_WIDTH = 320
 class StreakPopover(PopoverShell):
     """Detailed streak popover for the study-streak metric."""
 
-    def __init__(self, metrics: SessionMetrics) -> None:
+    def __init__(self, metrics: StreakMetrics) -> None:
         super().__init__(POPOVER_WIDTH, margins=(14, 14, 14, 14), spacing=10)
         self.metrics = metrics
         self.refresh_data(metrics)
 
-    def refresh_data(self, metrics: SessionMetrics) -> None:
+    def refresh_data(self, metrics: StreakMetrics) -> None:
         self.clear_content()
         self.metrics = metrics
         root = self.content_layout
@@ -44,17 +44,17 @@ class StreakPopover(PopoverShell):
 
         self.refresh_metrics(metrics)
 
-    def refresh_metrics(self, metrics: SessionMetrics) -> None:
+    def refresh_metrics(self, metrics: StreakMetrics) -> None:
         self.metrics = metrics
-        self.title_label.setText(tr("streak.hero_title", days=max(0, metrics.streak_days)))
+        self.title_label.setText(tr("streak.hero_title", days=format_number(max(0, metrics.days))))
         self.status_label.setText(_status_text(metrics))
         self.cutoff_label.setText(_cutoff_text(metrics))
-        self.today_line_label.setText(tr("streak.today_reviews_line", count=max(0, metrics.today_reviews)))
+        self.today_line_label.setText(tr("streak.today_reviews_line", count=format_number(max(0, metrics.today_reviews))))
 
-        self.start_value.setText(metrics.streak_start_date or tr("streak.no_start_date"))
-        self.longest_value.setText(tr("metric.days", count=max(0, metrics.longest_streak_days)))
-        self.yesterday_value.setText(tr("streak.review_count", count=max(0, metrics.yesterday_reviews)))
-        self.today_value.setText(tr("streak.review_count", count=max(0, metrics.today_reviews)))
+        self.start_value.setText(metrics.start_date or tr("streak.no_start_date"))
+        self.longest_value.setText(tr("metric.days", count=format_number(max(0, metrics.longest_days))))
+        self.yesterday_value.setText(tr("streak.review_count", count=format_number(max(0, metrics.yesterday_reviews))))
+        self.today_value.setText(tr("streak.review_count", count=format_number(max(0, metrics.today_reviews))))
 
     def _make_hero(self) -> QFrame:
         hero = QFrame()
@@ -156,24 +156,24 @@ class StreakPopover(PopoverShell):
         return tile
 
 
-def _status_text(metrics: SessionMetrics) -> str:
+def _status_text(metrics: StreakMetrics) -> str:
     if metrics.today_reviews > 0:
         return tr("streak.status_kept")
     return tr("streak.status_need_today")
 
 
-def _cutoff_text(metrics: SessionMetrics) -> str:
-    cutoff_time = tr("streak.cutoff_time", hour=max(0, metrics.cutoff_hour))
+def _cutoff_text(metrics: StreakMetrics) -> str:
+    cutoff_time = tr("streak.cutoff_time", hour=format_number(max(0, metrics.cutoff_hour)))
     if metrics.today_reviews > 0:
         return tr("streak.cutoff_done", time=cutoff_time)
     if metrics.seconds_until_cutoff > 0:
         hours = metrics.seconds_until_cutoff // 3600
         minutes = (metrics.seconds_until_cutoff % 3600) // 60
-        return tr("streak.cutoff_remaining", hours=hours, minutes=minutes)
+        return tr("streak.cutoff_remaining", hours=format_number(hours), minutes=format_number(minutes))
     return tr("streak.cutoff_need", time=cutoff_time)
 
 
-def make_streak_popover(metrics: SessionMetrics) -> StreakPopover:
+def make_streak_popover(metrics: StreakMetrics) -> StreakPopover:
     return StreakPopover(metrics)
 
 

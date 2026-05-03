@@ -21,8 +21,6 @@ def default_state() -> dict:
         "daily_stats": {},
         "total_xp": 0,
         "session_index": 1,
-        "current_streak_days": 0,
-        "longest_streak_days": 0,
         "audio_state": {},
     }
 

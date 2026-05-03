@@ -27,9 +27,6 @@ class PomodoroAnalyticsStore:
         self._addon_package = addon_package
         self.path = self._resolve_path()
         self.last_error: Exception | None = None
-        self.last_streak_debug: dict[str, Any] = {}
-        self._anki_streak_cache: dict[str, Any] | None = None
-        self._anki_streak_cache_today: int | None = None
         self._ensure_schema()
 
     def bootstrap_from_json(
@@ -80,6 +77,7 @@ class PomodoroAnalyticsStore:
     ) -> None:
         try:
             ease = max(1, min(4, int(ease or 1)))
+            xp = max(0, int(xp))
             with self._connection() as db:
                 self._ensure_session_progress(db, session)
                 db.execute(
@@ -88,7 +86,7 @@ class PomodoroAnalyticsStore:
                         answered_at, session_id, card_id, ease, card_kind, deck_id, deck_name, xp
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (answered_at, session.id, int(card_id), ease, card_kind, deck_id, deck_name, int(xp)),
+                    (answered_at, session.id, int(card_id), ease, card_kind, deck_id, deck_name, xp),
                 )
                 db.execute(
                     """
@@ -114,205 +112,55 @@ class PomodoroAnalyticsStore:
                         1 if ease == 2 else 0,
                         1 if ease == 3 else 0,
                         1 if ease == 4 else 0,
-                        int(xp),
+                        xp,
                         deck_id,
                         deck_name,
                         deck_name,
                         session.id,
                     ),
                 )
-                self._increment_daily_stats(db, day, ease, int(xp))
-            self._note_anki_review_answered()
+                self._increment_daily_stats(db, day, ease, xp)
             self.last_error = None
         except Exception as exc:
             self._handle_error("record_answer", exc)
 
-    def metrics_source(self, session: StudySessionState, today: str) -> dict[str, Any]:
-        review_streaks = self._anki_review_streaks()
+    def add_session_xp(self, session: StudySessionState, *, xp: int, updated_at: str, day: str) -> None:
+        try:
+            xp = max(0, int(xp))
+            if xp <= 0:
+                return
+            with self._connection() as db:
+                self._ensure_session_progress(db, session)
+                db.execute(
+                    """
+                    UPDATE session_progress
+                    SET updated_at = ?,
+                        xp = MAX(0, xp + ?)
+                    WHERE session_id = ?
+                    """,
+                    (updated_at, xp, session.id),
+                )
+                self._add_daily_xp(db, day, xp)
+            self.last_error = None
+        except Exception as exc:
+            self._handle_error("add_session_xp", exc)
+
+    def metrics_source(self, session: StudySessionState) -> dict[str, Any]:
         try:
             with self._connection() as db:
                 progress = self._session_progress_row(db, session)
                 total_xp = _int(db.execute("SELECT COALESCE(SUM(xp), 0) FROM daily_stats").fetchone()[0], 0)
-            today_progress = self._anki_today_review_progress()
             self.last_error = None
             return {
                 "progress": progress,
-                "today_progress": today_progress,
-                "today_cards": review_streaks["today_cards"],
-                "today_xp": review_streaks["today_xp"],
                 "total_xp": total_xp,
-                "streak_days": review_streaks["streak_days"],
-                "longest_streak_days": review_streaks["longest_streak_days"],
-                "streak_start_date": review_streaks["streak_start_date"],
-                "today_reviews": review_streaks["today_reviews"],
-                "yesterday_reviews": review_streaks["yesterday_reviews"],
-                "cutoff_hour": review_streaks["cutoff_hour"],
-                "seconds_until_cutoff": review_streaks["seconds_until_cutoff"],
             }
         except Exception as exc:
             self._handle_error("metrics_source", exc)
             return {
                 "progress": _progress_from_session(session),
-                "today_progress": self._anki_today_review_progress(),
-                "today_cards": review_streaks["today_cards"],
-                "today_xp": review_streaks["today_xp"],
                 "total_xp": 0,
-                "streak_days": review_streaks["streak_days"],
-                "longest_streak_days": review_streaks["longest_streak_days"],
-                "streak_start_date": review_streaks["streak_start_date"],
-                "today_reviews": review_streaks["today_reviews"],
-                "yesterday_reviews": review_streaks["yesterday_reviews"],
-                "cutoff_hour": review_streaks["cutoff_hour"],
-                "seconds_until_cutoff": review_streaks["seconds_until_cutoff"],
             }
-
-    def _anki_today_review_progress(self) -> dict[str, Any]:
-        try:
-            col = getattr(self._mw, "col", None)
-            db = getattr(col, "db", None)
-            if db is None:
-                return _empty_progress()
-            rollover_seconds = _anki_rollover_seconds(col)
-            anki_today = _anki_today_start(db, rollover_seconds)
-            start_ms = (int(anki_today) + int(rollover_seconds)) * 1000
-            end_ms = start_ms + 86400 * 1000
-            row = db.first(
-                """
-                SELECT
-                    COUNT(*) AS cards,
-                    SUM(CASE WHEN type = 0 THEN 1 ELSE 0 END) AS learning_cards,
-                    SUM(CASE WHEN type = 1 THEN 1 ELSE 0 END) AS review_cards,
-                    SUM(CASE WHEN type = 2 THEN 1 ELSE 0 END) AS relearning_cards,
-                    SUM(CASE WHEN type = 3 THEN 1 ELSE 0 END) AS filtered_cards,
-                    SUM(CASE WHEN ease = 1 THEN 1 ELSE 0 END) AS again_cards,
-                    SUM(CASE WHEN ease = 2 THEN 1 ELSE 0 END) AS hard_cards,
-                    SUM(CASE WHEN ease = 3 THEN 1 ELSE 0 END) AS good_cards,
-                    SUM(CASE WHEN ease = 4 THEN 1 ELSE 0 END) AS easy_cards
-                FROM revlog
-                WHERE id >= ? AND id < ? AND ease BETWEEN 1 AND 4
-                """,
-                start_ms,
-                end_ms,
-            )
-            progress = _progress_from_sequence(row)
-            progress["new_cards"] = progress["learning_cards"]
-            progress["xp"] = _xp_from_progress(progress)
-            return progress
-        except Exception as exc:
-            self._handle_error("anki_today_review_progress", exc)
-            return _empty_progress()
-
-    def _anki_review_streaks(self) -> dict[str, Any]:
-        try:
-            col = getattr(self._mw, "col", None)
-            db = getattr(col, "db", None)
-            if db is None:
-                return _empty_anki_review_streaks()
-            rollover_seconds = _anki_rollover_seconds(col)
-            anki_today = _anki_today_start(db, rollover_seconds)
-            if self._anki_streak_cache is not None and self._anki_streak_cache_today == anki_today:
-                return self._cached_anki_review_streaks(anki_today, rollover_seconds)
-            rollover_hours = rollover_seconds / 3600
-            rows = db.all(
-                """
-                SELECT
-                    CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day') AS int) AS day,
-                    COUNT(*) AS reviews
-                FROM revlog
-                WHERE ease >= 1
-                GROUP BY day
-                ORDER BY 1
-                """,
-                rollover_seconds,
-            )
-            reviews_by_day = {_int(day, 0): _int(reviews, 0) for day, reviews in rows if day is not None}
-            active_days = sorted(day for day, reviews in reviews_by_day.items() if reviews > 0)
-            streak_days = _current_streak_days(active_days, anki_today)
-            streak_end_day = _current_streak_end_day(active_days, anki_today)
-            streak_start_day = _streak_start_day(streak_end_day, streak_days)
-            longest_streak_days = _longest_streak_days(active_days)
-            today_reviews = max(0, reviews_by_day.get(anki_today, 0))
-            yesterday_reviews = max(0, reviews_by_day.get(anki_today - 86400, 0))
-            cutoff_hour = max(0, min(23, int(rollover_seconds) // 3600))
-            seconds_until_cutoff = _seconds_until_cutoff(anki_today, rollover_seconds)
-            self.last_streak_debug = {
-                "rollover_hours": rollover_hours,
-                "today": anki_today,
-                "today_key": _day_key(anki_today),
-                "today_reviews": today_reviews,
-                "yesterday_reviews": yesterday_reviews,
-                "last_active_day": _day_key(active_days[-1]) if active_days else None,
-                "streak_days": streak_days,
-                "streak_start_date": _day_key(streak_start_day) if streak_start_day is not None else "",
-                "longest_streak_days": longest_streak_days,
-                "active_days": len(active_days),
-            }
-            result = {
-                "streak_days": streak_days,
-                "longest_streak_days": longest_streak_days,
-                "streak_start_date": _day_key(streak_start_day) if streak_start_day is not None else "",
-                "today_cards": today_reviews,
-                "today_xp": 0,
-                "today_reviews": today_reviews,
-                "yesterday_reviews": yesterday_reviews,
-                "cutoff_hour": cutoff_hour,
-                "seconds_until_cutoff": seconds_until_cutoff,
-            }
-            self._anki_streak_cache = dict(result)
-            self._anki_streak_cache_today = anki_today
-            return result
-        except Exception as exc:
-            self.last_streak_debug = {"error": f"{type(exc).__name__}: {exc}"}
-            self._handle_error("anki_review_streaks", exc)
-            return _empty_anki_review_streaks()
-
-    def _cached_anki_review_streaks(self, anki_today: int, rollover_seconds: int) -> dict[str, Any]:
-        cached = dict(self._anki_streak_cache or _empty_anki_review_streaks())
-        cached["seconds_until_cutoff"] = _seconds_until_cutoff(anki_today, rollover_seconds)
-        cutoff_hour = max(0, min(23, int(rollover_seconds) // 3600))
-        cached["cutoff_hour"] = cutoff_hour
-        self.last_streak_debug = {
-            "cached": True,
-            "today": anki_today,
-            "today_key": _day_key(anki_today),
-            "today_reviews": cached["today_reviews"],
-            "yesterday_reviews": cached["yesterday_reviews"],
-            "streak_days": cached["streak_days"],
-            "streak_start_date": cached["streak_start_date"],
-            "longest_streak_days": cached["longest_streak_days"],
-        }
-        self._anki_streak_cache = dict(cached)
-        return cached
-
-    def _note_anki_review_answered(self) -> None:
-        if self._anki_streak_cache is None:
-            return
-        try:
-            col = getattr(self._mw, "col", None)
-            db = getattr(col, "db", None)
-            if db is None:
-                self._anki_streak_cache = None
-                self._anki_streak_cache_today = None
-                return
-            rollover_seconds = _anki_rollover_seconds(col)
-            anki_today = _anki_today_start(db, rollover_seconds)
-            if self._anki_streak_cache_today != anki_today:
-                self._anki_streak_cache = None
-                self._anki_streak_cache_today = None
-                return
-            today_reviews = _int(self._anki_streak_cache.get("today_reviews"), 0) + 1
-            self._anki_streak_cache["today_reviews"] = today_reviews
-            self._anki_streak_cache["today_cards"] = today_reviews
-            if _int(self._anki_streak_cache.get("streak_days"), 0) <= 0:
-                self._anki_streak_cache["streak_days"] = 1
-                self._anki_streak_cache["streak_start_date"] = _day_key(anki_today)
-            self._anki_streak_cache["longest_streak_days"] = max(
-                _int(self._anki_streak_cache.get("longest_streak_days"), 0),
-                _int(self._anki_streak_cache.get("streak_days"), 0),
-            )
-        except Exception:
-            self._anki_streak_cache = None
-            self._anki_streak_cache_today = None
 
     def finalize_session(
         self,
@@ -390,22 +238,24 @@ class PomodoroAnalyticsStore:
             self._handle_error("session_history", exc)
             return []
 
-    def session_history_for_day(self, day: str, max_rows: int = 12) -> list[SessionHistoryEntry]:
+    def session_history_for_day(self, day: str, max_rows: Optional[int] = None) -> list[SessionHistoryEntry]:
         try:
-            max_rows = max(1, int(max_rows))
             with self._connection() as db:
+                sql = """
+                    SELECT mode, session_index, session_total, started_at, ended_at,
+                           duration_seconds, cards, xp, retention, completed, deck_name
+                    FROM sessions
+                    WHERE substr(ended_at, 1, 10) = ?
+                    ORDER BY ended_at DESC, id DESC
+                    """
+                params: tuple[Any, ...]
+                if max_rows is not None:
+                    sql += " LIMIT ?"
+                    params = (str(day), max(1, int(max_rows)))
+                else:
+                    params = (str(day),)
                 rows = _rows(
-                    db.execute(
-                        """
-                        SELECT mode, session_index, session_total, started_at, ended_at,
-                               duration_seconds, cards, xp, retention, completed, deck_name
-                        FROM sessions
-                        WHERE substr(ended_at, 1, 10) = ?
-                        ORDER BY ended_at DESC, id DESC
-                        LIMIT ?
-                        """,
-                        (str(day), max_rows),
-                    )
+                    db.execute(sql, params)
                 )
             entries = []
             for row in rows:
@@ -796,6 +646,7 @@ class PomodoroAnalyticsStore:
     def _increment_daily_stats(self, db: sqlite3.Connection, day: str, ease: int, xp: int) -> None:
         if not day:
             return
+        xp = max(0, int(xp))
         db.execute(
             """
             INSERT INTO daily_stats (day, cards, xp, again, hard, good, easy)
@@ -817,6 +668,20 @@ class PomodoroAnalyticsStore:
                 1 if ease == 4 else 0,
                 xp,
             ),
+        )
+
+    def _add_daily_xp(self, db: sqlite3.Connection, day: str, xp: int) -> None:
+        if not day:
+            return
+        xp = max(0, int(xp))
+        db.execute(
+            """
+            INSERT INTO daily_stats (day, cards, xp, again, hard, good, easy)
+            VALUES (?, 0, ?, 0, 0, 0, 0)
+            ON CONFLICT(day) DO UPDATE SET
+                xp = MAX(0, daily_stats.xp + ?)
+            """,
+            (day, xp, xp),
         )
 
     def _daily_stats_row(self, db: sqlite3.Connection, day: str) -> dict[str, Any]:
@@ -976,105 +841,6 @@ def _empty_progress() -> dict[str, int]:
     }
 
 
-def _progress_from_sequence(row: object) -> dict[str, int]:
-    values = list(row) if row is not None else []
-    keys = [
-        "cards",
-        "learning_cards",
-        "review_cards",
-        "relearning_cards",
-        "filtered_cards",
-        "again_cards",
-        "hard_cards",
-        "good_cards",
-        "easy_cards",
-    ]
-    progress = _empty_progress()
-    for index, key in enumerate(keys):
-        progress[key] = _int(values[index], 0) if index < len(values) else 0
-    progress["new_cards"] = progress["learning_cards"]
-    return progress
-
-
-def _xp_from_progress(progress: dict[str, Any]) -> int:
-    xp = (
-        _int(progress.get("hard_cards"), 0)
-        + _int(progress.get("good_cards"), 0) * 2
-        + _int(progress.get("easy_cards"), 0)
-        - _int(progress.get("again_cards"), 0)
-    )
-    return max(0, xp)
-
-
-def _empty_anki_review_streaks() -> dict[str, Any]:
-    return {
-        "streak_days": 0,
-        "longest_streak_days": 0,
-        "streak_start_date": "",
-        "today_cards": 0,
-        "today_xp": 0,
-        "today_reviews": 0,
-        "yesterday_reviews": 0,
-        "cutoff_hour": 4,
-        "seconds_until_cutoff": 0,
-    }
-
-
-def _anki_rollover_seconds(col: Any) -> int:
-    conf = getattr(col, "conf", None)
-    if isinstance(conf, dict):
-        try:
-            rollover_hour = int(conf.get("rollover"))
-            return max(0, min(23, rollover_hour)) * 3600
-        except (TypeError, ValueError):
-            pass
-    cutoff = _anki_day_cutoff(col)
-    if cutoff is None:
-        return 4 * 3600
-    try:
-        rollover = datetime.fromtimestamp(int(cutoff))
-    except (OSError, OverflowError, TypeError, ValueError):
-        return 4 * 3600
-    return max(0, min(23 * 3600 + 59 * 60, rollover.hour * 3600 + rollover.minute * 60))
-
-
-def _anki_today_start(db: Any, rollover_seconds: int) -> int:
-    if int(rollover_seconds) % 3600 == 0:
-        modifier = f"-{int(rollover_seconds) // 3600} hours"
-    else:
-        modifier = f"-{max(0, int(rollover_seconds))} seconds"
-    try:
-        value = db.scalar(
-            "SELECT CAST(STRFTIME('%s', 'now', ?, 'localtime', 'start of day') AS int)",
-            modifier,
-        )
-        return int(value)
-    except Exception:
-        return int(datetime.now().timestamp())
-
-
-def _anki_day_cutoff(col: Any) -> Optional[int]:
-    sched = getattr(col, "sched", None)
-    for name in ("day_cutoff", "dayCutoff"):
-        value = getattr(sched, name, None)
-        if callable(value):
-            try:
-                value = value()
-            except Exception:
-                continue
-        if value is None:
-            continue
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            continue
-    return None
-
-
-def _day_key(day_start: int) -> str:
-    return datetime.fromtimestamp(day_start).date().isoformat()
-
-
 def _entry_from_progress(
     session: StudySessionState,
     progress: dict[str, Any],
@@ -1099,54 +865,3 @@ def _entry_from_progress(
         completed=completed,
         deck_name=str(progress.get("deck_name") or session.deck_name),
     )
-
-
-def _current_streak_end_day(active_days: list[int], today_start: int) -> Optional[int]:
-    active = set(active_days)
-    if today_start in active:
-        return today_start
-    yesterday = today_start - 86400
-    if yesterday in active:
-        return yesterday
-    return None
-
-
-def _current_streak_days(active_days: list[int], today_start: int) -> int:
-    end_day = _current_streak_end_day(active_days, today_start)
-    if end_day is None:
-        return 0
-    active = set(active_days)
-    streak = 0
-    cursor = end_day
-    while cursor in active:
-        streak += 1
-        cursor -= 86400
-    return streak
-
-
-def _streak_start_day(streak_end_day: Optional[int], streak_days: int) -> Optional[int]:
-    if streak_end_day is None or streak_days <= 0:
-        return None
-    return streak_end_day - (streak_days - 1) * 86400
-
-
-def _seconds_until_cutoff(today_start: int, rollover_seconds: int) -> int:
-    next_cutoff = int(today_start) + 86400 + max(0, int(rollover_seconds))
-    now = int(datetime.now().timestamp())
-    while next_cutoff <= now:
-        next_cutoff += 86400
-    return max(0, next_cutoff - now)
-
-
-def _longest_streak_days(active_days: list[int]) -> int:
-    longest = 0
-    current = 0
-    previous = None
-    for day in active_days:
-        if previous is None or day == previous + 86400:
-            current += 1
-        else:
-            current = 1
-        longest = max(longest, current)
-        previous = day
-    return longest

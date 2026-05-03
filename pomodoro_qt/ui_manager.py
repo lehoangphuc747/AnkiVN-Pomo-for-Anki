@@ -7,9 +7,13 @@ from typing import Callable, Optional
 from aqt.qt import QDockWidget, QWidget, Qt
 
 from .corner_badge import HtmlCornerBadgeWidget
+from .cards_metric import CardsStudiedMetrics
+from .experience_metric import ExperienceMetrics
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SessionMetrics
+from .retention_metric import RetentionMetrics
 from .sidebar_panel import SidebarWidget
 from .sound import AudioPopover
+from .streak_metric import StreakMetrics
 from .style import addon_qss
 from .under_toolbar import UnderToolbarWidget
 
@@ -52,10 +56,19 @@ class UIManager:
         self._visible_metric_name: Optional[str] = None
         self._visible_metric_anchor: Optional[QWidget] = None
 
-    def build(self, settings, metrics: SessionMetrics, audio_state: dict) -> None:
-        self.under_widget = UnderToolbarWidget(metrics)
-        self.sidebar_widget = SidebarWidget(metrics)
-        self.corner_widget = HtmlCornerBadgeWidget(metrics)
+    def build(
+        self,
+        settings,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+        audio_state: dict,
+    ) -> None:
+        self.under_widget = UnderToolbarWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
+        self.sidebar_widget = SidebarWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
+        self.corner_widget = HtmlCornerBadgeWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
         self.audio_popover = AudioPopover()
         self.audio_popover.restore_state(audio_state)
         self.metric_popovers = self._make_metric_popovers()
@@ -78,9 +91,18 @@ class UIManager:
         self.corner_widget.action_requested.connect(self._handle_corner_action)
         self.corner_widget.moved.connect(self._on_corner_moved)
 
-    def rebuild(self, settings, metrics: SessionMetrics, audio_state: dict) -> None:
+    def rebuild(
+        self,
+        settings,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+        audio_state: dict,
+    ) -> None:
         self.dispose()
-        self.build(settings, metrics, audio_state)
+        self.build(settings, metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics, audio_state)
 
     def dispose(self) -> None:
         self.hide_floating_popovers()
@@ -148,10 +170,17 @@ class UIManager:
             if widget:
                 widget.sync_state(state)
 
-    def refresh_metrics(self, metrics: SessionMetrics) -> None:
+    def refresh_metrics(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         for widget in [self.under_widget, self.sidebar_widget, self.corner_widget]:
             if widget:
-                widget.refresh_metrics(metrics)
+                widget.refresh_metrics(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
         self.refresh_visible_metric_popover()
 
     def audio_state_snapshot(self) -> dict:

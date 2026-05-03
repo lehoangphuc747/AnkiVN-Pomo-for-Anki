@@ -7,15 +7,15 @@ from typing import Sequence
 
 from aqt.qt import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget, Qt
 
-from .i18n import tr
+from .i18n import format_number, tr
 from .metric_popover import ALIGN_RIGHT, MetricPopover
 from .models import MODE_BREAK, MODE_POMODORO, SessionHistoryEntry, SessionMetrics
 from .style import COLORS
 
 
-MAX_TODAY_ROWS = 8
 MAX_DAY_ROWS = 45
 MAX_SCROLL_HEIGHT = 320
+MAX_TODAY_SCROLL_HEIGHT = 360
 
 IOS_TEXT = "#1D1D1F"
 IOS_SECONDARY = "#6E6E73"
@@ -43,7 +43,7 @@ class SessionHistoryPopover(MetricPopover):
         self.content_layout.addWidget(_section_label(tr("metric.today")))
 
         if today_entries:
-            self.content_layout.addWidget(_today_timeline(today_entries[:MAX_TODAY_ROWS]))
+            self.content_layout.addWidget(_entries_scroll(_today_timeline(today_entries), MAX_TODAY_SCROLL_HEIGHT))
         else:
             self.content_layout.addWidget(_empty_today_card())
 
@@ -141,9 +141,12 @@ def _current_summary_card(metrics: SessionMetrics) -> QFrame:
     stats = QHBoxLayout()
     stats.setContentsMargins(0, 0, 0, 0)
     stats.setSpacing(8)
-    stats.addWidget(_stat_pill(tr("common.cards"), str(max(0, metrics.session_cards)), IOS_TEXT), 1)
-    stats.addWidget(_stat_pill(tr("metric.retention"), f"{max(0, metrics.session_retention)}%", COLORS["green"]), 1)
-    stats.addWidget(_stat_pill(tr("common.xp"), f"+{max(0, metrics.session_xp)}", COLORS["red"]), 1)
+    stats.addWidget(_stat_pill(tr("common.cards"), format_number(max(0, metrics.session_cards)), IOS_TEXT), 1)
+    stats.addWidget(
+        _stat_pill(tr("metric.retention"), tr("common.percent", value=format_number(max(0, metrics.session_retention))), COLORS["green"]),
+        1,
+    )
+    stats.addWidget(_stat_pill(tr("common.xp"), f"+{format_number(max(0, metrics.session_xp))}", COLORS["red"]), 1)
     layout.addLayout(stats)
     return card
 
@@ -297,11 +300,15 @@ def _empty_today_card() -> QFrame:
 
 
 def _older_days_scroll(summaries: list[dict]) -> QScrollArea:
+    return _entries_scroll(_day_group(summaries), MAX_SCROLL_HEIGHT)
+
+
+def _entries_scroll(widget: QWidget, max_height: int) -> QScrollArea:
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    scroll.setMaximumHeight(MAX_SCROLL_HEIGHT)
+    scroll.setMaximumHeight(max_height)
     scroll.setStyleSheet(
         f"""
         QScrollArea {{
@@ -328,14 +335,7 @@ def _older_days_scroll(summaries: list[dict]) -> QScrollArea:
         }}
         """
     )
-
-    content = QWidget()
-    content.setStyleSheet("background: transparent;")
-    layout = QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
-    layout.addWidget(_day_group(summaries))
-    scroll.setWidget(content)
+    scroll.setWidget(widget)
     return scroll
 
 
@@ -404,15 +404,15 @@ def _entry_title(entry: SessionHistoryEntry) -> str:
 def _entry_detail(entry: SessionHistoryEntry) -> str:
     status = tr("state.completed") if entry.completed else tr("state.stopped")
     if entry.mode == MODE_BREAK:
-        return tr("session.history_break_detail", status=status, minutes=_minutes(entry.duration_seconds))
+        return tr("session.history_break_detail", status=status, minutes=format_number(_minutes(entry.duration_seconds)))
     deck = tr("session.deck_suffix", deck=entry.deck_name.strip()) if entry.deck_name.strip() else ""
     return tr(
         "session.history_focus_detail",
         status=status,
-        minutes=_minutes(entry.duration_seconds),
-        cards=max(0, entry.cards),
-        retention=max(0, entry.retention),
-        xp=max(0, entry.xp),
+        minutes=format_number(_minutes(entry.duration_seconds)),
+        cards=format_number(max(0, entry.cards)),
+        retention=format_number(max(0, entry.retention)),
+        xp=format_number(max(0, entry.xp)),
         deck=deck,
     )
 
@@ -420,7 +420,7 @@ def _entry_detail(entry: SessionHistoryEntry) -> str:
 def _entry_marker(entry: SessionHistoryEntry) -> str:
     if entry.mode == MODE_BREAK:
         return "B"
-    return str(_positive_index(entry.session_index))
+    return format_number(_positive_index(entry.session_index))
 
 
 def _entry_accent(entry: SessionHistoryEntry) -> str:
@@ -428,7 +428,7 @@ def _entry_accent(entry: SessionHistoryEntry) -> str:
 
 
 def _pomodoro_label(index: object) -> str:
-    return f"Pomodoro {_positive_index(index)}"
+    return f"Pomodoro {format_number(_positive_index(index))}"
 
 
 def _positive_index(value: object) -> int:
@@ -451,7 +451,7 @@ def _summary_text(summary: dict) -> str:
     pomodoros = _int(summary.get("pomodoros"))
     cards = _int(summary.get("cards"))
     xp = _int(summary.get("xp"))
-    return f"{pomodoros} Pomo - {cards} {tr('common.cards')} - {xp} {tr('common.xp')}"
+    return f"{format_number(pomodoros)} Pomo - {format_number(cards)} {tr('common.cards')} - {format_number(xp)} {tr('common.xp')}"
 
 
 def _summaries_from_history(history: Sequence[SessionHistoryEntry]) -> list[dict]:

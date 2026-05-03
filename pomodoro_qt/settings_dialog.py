@@ -10,6 +10,7 @@ from .ui_components import VIETNAM_ICON_PATH, make_button, make_icon_label, make
 
 
 class SettingsDialog(QDialog):
+    apply_requested = pyqtSignal()
     export_requested = pyqtSignal()
     import_requested = pyqtSignal()
     reset_data_requested = pyqtSignal()
@@ -93,15 +94,24 @@ class SettingsDialog(QDialog):
         reset_row.addWidget(self.reset_all_button)
         root.addLayout(reset_row)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Apply
+            | QDialogButtonBox.StandardButton.Cancel
+        )
         ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        apply_button = buttons.button(QDialogButtonBox.StandardButton.Apply)
         cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
         if ok_button:
             ok_button.setText(tr("common.ok"))
+        if apply_button:
+            apply_button.setText(tr("common.apply"))
         if cancel_button:
             cancel_button.setText(tr("common.cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        if apply_button:
+            apply_button.clicked.connect(lambda _checked=False: self.apply_requested.emit())
         self.export_button.clicked.connect(self.export_requested.emit)
         self.import_button.clicked.connect(self.import_requested.emit)
         self.reset_data_button.clicked.connect(self.reset_data_requested.emit)

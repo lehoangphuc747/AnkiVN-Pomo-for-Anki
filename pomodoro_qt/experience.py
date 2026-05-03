@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, Qt
 
-from .i18n import tr
+from .i18n import format_number, tr
 from .metric_popover import MetricPopover
-from .models import SessionMetrics
+from .experience_metric import ExperienceMetrics, XP_PER_COMPLETED_POMODORO, XP_PER_STUDIED_CARD, studied_cards_experience
 from .style import COLORS
 
 
@@ -15,18 +15,19 @@ ALIGN_RIGHT = Qt.AlignmentFlag.AlignRight
 
 
 class ExperiencePopover(MetricPopover):
-    def __init__(self, metrics: SessionMetrics) -> None:
+    def __init__(self, metrics: ExperienceMetrics) -> None:
         super().__init__(320)
         self.refresh_data(metrics)
 
-    def refresh_data(self, metrics: SessionMetrics) -> None:
+    def refresh_data(self, metrics: ExperienceMetrics) -> None:
         self.clear_content()
         self._add_hero(metrics)
         self._add_progress_card(metrics)
         self._add_stats(metrics)
+        self._add_xp_sources(metrics)
         self._add_breakdown(metrics)
 
-    def _add_hero(self, metrics: SessionMetrics) -> None:
+    def _add_hero(self, metrics: ExperienceMetrics) -> None:
         hero = QFrame()
         hero.setStyleSheet(
             f"""
@@ -41,7 +42,7 @@ class ExperiencePopover(MetricPopover):
         layout.setContentsMargins(14, 13, 14, 13)
         layout.setSpacing(12)
 
-        badge = QLabel(str(metrics.level))
+        badge = QLabel(format_number(metrics.level))
         badge.setAlignment(ALIGN_CENTER)
         badge.setFixedSize(48, 48)
         badge.setStyleSheet(
@@ -61,9 +62,15 @@ class ExperiencePopover(MetricPopover):
         eyebrow.setStyleSheet(
             f"color: {COLORS['red']}; font-size: 10px; font-weight: 800; letter-spacing: 1px;"
         )
-        title = QLabel(f"{tr('metric.level')} {metrics.level}")
+        title = QLabel(f"{tr('metric.level')} {format_number(metrics.level)}")
         title.setStyleSheet(f"color: {COLORS['text']}; font-size: 18px; font-weight: 700;")
-        subtitle = QLabel(tr("experience.to_next_level", xp=metrics.xp_to_next_level, level=metrics.level + 1))
+        subtitle = QLabel(
+            tr(
+                "experience.to_next_level",
+                xp=format_number(metrics.experience_to_next_level),
+                level=format_number(metrics.level + 1),
+            )
+        )
         subtitle.setStyleSheet(f"color: {COLORS['muted']}; font-size: 11px; font-weight: 600;")
         copy.addWidget(eyebrow)
         copy.addWidget(title)
@@ -74,7 +81,7 @@ class ExperiencePopover(MetricPopover):
         self.content_layout.addWidget(hero)
         self.content_layout.addSpacing(12)
 
-    def _add_progress_card(self, metrics: SessionMetrics) -> None:
+    def _add_progress_card(self, metrics: ExperienceMetrics) -> None:
         card = QFrame()
         card.setStyleSheet(
             f"""
@@ -92,7 +99,7 @@ class ExperiencePopover(MetricPopover):
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         title = QLabel(tr("experience.total_progress"))
-        value = QLabel(f"{metrics.level_progress}%")
+        value = QLabel(tr("common.percent", value=format_number(metrics.level_progress)))
         value.setAlignment(ALIGN_RIGHT)
         title.setStyleSheet(f"color: {COLORS['muted']}; font-size: 11px; font-weight: 700;")
         value.setStyleSheet(f"color: {COLORS['red']}; font-size: 12px; font-weight: 800;")
@@ -119,7 +126,13 @@ class ExperiencePopover(MetricPopover):
             """
         )
 
-        detail = QLabel(tr("experience.progress_left", total=metrics.total_xp, next=metrics.next_level_xp))
+        detail = QLabel(
+            tr(
+                "experience.progress_left",
+                total=format_number(metrics.experience),
+                next=format_number(metrics.next_level_experience),
+            )
+        )
         detail.setStyleSheet(f"color: {COLORS['muted_light']}; font-size: 10px; font-weight: 650;")
 
         layout.addLayout(row)
@@ -128,16 +141,60 @@ class ExperiencePopover(MetricPopover):
         self.content_layout.addWidget(card)
         self.content_layout.addSpacing(12)
 
-    def _add_stats(self, metrics: SessionMetrics) -> None:
+    def _add_stats(self, metrics: ExperienceMetrics) -> None:
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
-        grid.addWidget(self._stat_tile(tr("metric.session_xp"), f"+{metrics.session_xp} {tr('common.xp')}"), 0, 0)
-        grid.addWidget(self._stat_tile(tr("metric.total_xp"), f"{metrics.total_xp} {tr('common.xp')}"), 0, 1)
+        grid.addWidget(self._stat_tile(tr("metric.streak"), tr("metric.days", count=format_number(metrics.streak_days))), 0, 0)
+        grid.addWidget(self._stat_tile(tr("metric.streak_xp"), f"{format_number(metrics.experience)} {tr('common.xp')}"), 0, 1)
         self.content_layout.addLayout(grid)
         self.content_layout.addSpacing(14)
 
-    def _add_breakdown(self, metrics: SessionMetrics) -> None:
+    def _add_xp_sources(self, metrics: ExperienceMetrics) -> None:
+        cards_count = max(0, metrics.hard_cards + metrics.good_cards + metrics.easy_cards)
+        cards_xp = studied_cards_experience(
+            hard_cards=metrics.hard_cards,
+            good_cards=metrics.good_cards,
+            easy_cards=metrics.easy_cards,
+        )
+        pomodoro_xp = max(0, metrics.experience - cards_xp)
+        completed_pomodoros = pomodoro_xp // max(1, XP_PER_COMPLETED_POMODORO)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(8)
+        grid.addWidget(
+            self._xp_source_tile(
+                tr("experience.cards_studied_xp"),
+                cards_xp,
+                tr(
+                    "experience.cards_studied_xp_detail",
+                    cards=format_number(cards_count),
+                    xp=format_number(XP_PER_STUDIED_CARD),
+                ),
+                COLORS["text"],
+            ),
+            0,
+            0,
+        )
+        grid.addWidget(
+            self._xp_source_tile(
+                tr("experience.pomodoro_xp"),
+                pomodoro_xp,
+                tr(
+                    "experience.pomodoro_xp_detail",
+                    pomodoros=format_number(completed_pomodoros),
+                    xp=format_number(XP_PER_COMPLETED_POMODORO),
+                ),
+                COLORS["red"],
+            ),
+            0,
+            1,
+        )
+        self.content_layout.addLayout(grid)
+        self.content_layout.addSpacing(14)
+
+    def _add_breakdown(self, metrics: ExperienceMetrics) -> None:
         title = QLabel(tr("experience.breakdown"))
         title.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 700;")
         self.content_layout.addWidget(title)
@@ -145,16 +202,16 @@ class ExperiencePopover(MetricPopover):
         rows = QVBoxLayout()
         rows.setContentsMargins(0, 0, 0, 0)
         rows.setSpacing(8)
-        for label, count, xp, color in [
-            (tr("metric.again"), metrics.again_cards, "-1", COLORS["muted"]),
-            (tr("metric.hard"), metrics.hard_cards, "+1", COLORS["green"]),
-            (tr("metric.good"), metrics.good_cards, "+2", COLORS["red"]),
-            (tr("metric.easy"), metrics.easy_cards, "+1", COLORS["green"]),
+        for label, count in [
+            (tr("metric.again"), metrics.again_cards),
+            (tr("metric.hard"), metrics.hard_cards),
+            (tr("metric.good"), metrics.good_cards),
+            (tr("metric.easy"), metrics.easy_cards),
         ]:
-            rows.addWidget(self._breakdown_row(label, count, xp, color))
+            rows.addWidget(self._breakdown_row(label, count))
         self.content_layout.addLayout(rows)
 
-    def _breakdown_row(self, label_text: str, count: int, xp_text: str, color: str) -> QFrame:
+    def _breakdown_row(self, label_text: str, count: int) -> QFrame:
         row = QFrame()
         row.setStyleSheet(
             f"""
@@ -171,26 +228,12 @@ class ExperiencePopover(MetricPopover):
 
         label = QLabel(label_text)
         label.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 650;")
-        count_label = QLabel(tr("experience.cards_count", count=count))
+        count_label = QLabel(tr("experience.cards_count", count=format_number(count)))
         count_label.setAlignment(ALIGN_RIGHT)
         count_label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 11px; font-weight: 600;")
-        xp_badge = QLabel(tr("experience.xp_per_card", xp=xp_text))
-        xp_badge.setAlignment(ALIGN_CENTER)
-        xp_badge.setStyleSheet(
-            f"""
-            background: #FFFFFF;
-            color: {color};
-            border: 0;
-            border-radius: 8px;
-            padding: 3px 7px;
-            font-size: 11px;
-            font-weight: 750;
-            """
-        )
 
         layout.addWidget(label, 1)
         layout.addWidget(count_label)
-        layout.addWidget(xp_badge)
         return row
 
     def _stat_tile(self, label_text: str, value_text: str) -> QFrame:
@@ -215,8 +258,35 @@ class ExperiencePopover(MetricPopover):
         layout.addWidget(value)
         return tile
 
+    def _xp_source_tile(self, label_text: str, xp: int, detail_text: str, accent: str) -> QFrame:
+        tile = QFrame()
+        tile.setStyleSheet(
+            """
+            QFrame {
+                background: #FAF9F6;
+                border: 0;
+                border-radius: 12px;
+            }
+            """
+        )
+        layout = QVBoxLayout(tile)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(4)
+        label = QLabel(label_text)
+        label.setWordWrap(True)
+        label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 10px; font-weight: 800;")
+        value = QLabel(f"+{format_number(xp)} {tr('common.xp')}")
+        value.setStyleSheet(f"color: {accent}; font-size: 16px; font-weight: 760;")
+        detail = QLabel(detail_text)
+        detail.setWordWrap(True)
+        detail.setStyleSheet(f"color: {COLORS['muted_light']}; font-size: 10px; font-weight: 650;")
+        layout.addWidget(label)
+        layout.addWidget(value)
+        layout.addWidget(detail)
+        return tile
 
-def make_experience_popover(metrics: SessionMetrics) -> ExperiencePopover:
+
+def make_experience_popover(metrics: ExperienceMetrics) -> ExperiencePopover:
     return ExperiencePopover(metrics)
 
 

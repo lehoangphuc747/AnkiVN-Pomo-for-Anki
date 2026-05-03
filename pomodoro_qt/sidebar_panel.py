@@ -6,8 +6,12 @@ from typing import Iterable
 
 from aqt.qt import QFrame, QHBoxLayout, QPushButton, QVBoxLayout
 
-from .i18n import tr
+from .i18n import format_number, tr
+from .cards_metric import CardsStudiedMetrics
+from .experience_metric import ExperienceMetrics
 from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
+from .retention_metric import RetentionMetrics
+from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import (
     ALIGN_CENTER,
@@ -34,9 +38,20 @@ from .ui_components import (
 
 
 class SidebarWidget(QFrame):
-    def __init__(self, metrics: SessionMetrics) -> None:
+    def __init__(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         super().__init__()
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self.setProperty("panel", "sidebar")
         self.setFixedWidth(260)
 
@@ -64,17 +79,15 @@ class SidebarWidget(QFrame):
         root.addWidget(self.circular, 0, ALIGN_CENTER)
         root.addSpacing(4)
 
-        self.session_button = self._make_session_button(metrics)
-        root.addWidget(self.session_button)
-        root.addSpacing(12)
-
         controls = QHBoxLayout()
-        controls.setSpacing(20)
+        controls.setSpacing(14)
         self.pause_button = make_primary_pause_button()
         self.stop_button = make_stop_button(COLORS["text"], 13)
+        self.session_button = self._make_session_button(metrics)
         controls.addStretch(1)
         controls.addWidget(self.pause_button)
         controls.addWidget(self.stop_button)
+        controls.addWidget(self.session_button)
         controls.addStretch(1)
         root.addLayout(controls)
 
@@ -84,21 +97,25 @@ class SidebarWidget(QFrame):
         root.addWidget(line)
 
         self.experience_button = make_sidebar_metric_button(
-            tr("metric.experience"), self._experience_text(metrics), tr("tooltip.experience")
+            tr("metric.experience"), self._experience_text(experience_metrics), tr("tooltip.experience"), icon_path=GROWTH_ICON_PATH
         )
-        set_button_icon(self.experience_button, GROWTH_ICON_PATH, 13)
         self.retention_button = make_sidebar_metric_button(
-            tr("metric.retention"), tr("common.percent", value=metrics.retention), tr("tooltip.retention"), COLORS["pink"]
+            tr("metric.retention"),
+            tr("common.percent", value=format_number(retention_metrics.today_retention)),
+            tr("tooltip.retention"),
+            COLORS["pink"],
+            BRAIN_ICON_PATH,
         )
-        set_button_icon(self.retention_button, BRAIN_ICON_PATH, 13)
         self.cards_button = make_sidebar_metric_button(
-            tr("metric.cards_studied"), tr("metric.cards_short", count=metrics.cards), tr("tooltip.cards"), COLORS["yellow"]
+            tr("metric.cards_studied"),
+            tr("metric.cards_short", count=format_number(cards_metrics.cards)),
+            tr("tooltip.cards"),
+            COLORS["yellow"],
+            BOLT_ICON_PATH,
         )
-        set_button_icon(self.cards_button, BOLT_ICON_PATH, 13)
         self.streak_button = make_sidebar_metric_button(
-            tr("metric.streak"), tr("metric.days", count=metrics.streak_days), tr("tooltip.streak"), COLORS["red"]
+            tr("metric.streak"), tr("metric.days", count=format_number(streak_metrics.days)), tr("tooltip.streak"), COLORS["red"], FIRE_ICON_PATH
         )
-        set_button_icon(self.streak_button, FIRE_ICON_PATH, 13)
         metrics_layout = QVBoxLayout()
         metrics_layout.setSpacing(0)
         metrics_layout.setContentsMargins(0, 0, 0, 0)
@@ -117,13 +134,24 @@ class SidebarWidget(QFrame):
         set_pause_button_state(self.pause_button, state.paused, primary=True)
         self.stop_button.setVisible(state.started)
 
-    def refresh_metrics(self, metrics: SessionMetrics) -> None:
+    def refresh_metrics(
+        self,
+        metrics: SessionMetrics,
+        experience_metrics: ExperienceMetrics,
+        cards_metrics: CardsStudiedMetrics,
+        retention_metrics: RetentionMetrics,
+        streak_metrics: StreakMetrics,
+    ) -> None:
         self.metrics = metrics
+        self.experience_metrics = experience_metrics
+        self.cards_metrics = cards_metrics
+        self.retention_metrics = retention_metrics
+        self.streak_metrics = streak_metrics
         self.session_button.setText(self._session_text(metrics))
-        self.experience_button.setText(f"{tr('metric.experience'):<14}{self._experience_text(metrics)}")
-        self.retention_button.setText(f"{tr('metric.retention'):<14}{tr('common.percent', value=metrics.retention)}")
-        self.cards_button.setText(f"{tr('metric.cards_studied'):<14}{tr('metric.cards_short', count=metrics.cards)}")
-        self.streak_button.setText(f"{tr('metric.streak'):<14}{tr('metric.days', count=metrics.streak_days)}")
+        self.experience_button.set_value(self._experience_text(experience_metrics))
+        self.retention_button.set_value(tr("common.percent", value=format_number(retention_metrics.today_retention)))
+        self.cards_button.set_value(tr("metric.cards_short", count=format_number(cards_metrics.cards)))
+        self.streak_button.set_value(tr("metric.days", count=format_number(streak_metrics.days)))
 
     def metric_buttons(self) -> Iterable[QPushButton]:
         return [
@@ -137,20 +165,22 @@ class SidebarWidget(QFrame):
     def _make_session_button(self, metrics: SessionMetrics) -> QPushButton:
         button = make_button(self._session_text(metrics), "sessionHistory", tr("tooltip.session_history"))
         set_button_icon(button, HISTORY_ICON_PATH, 14)
+        button.setFixedSize(36, 36)
         button.setStyleSheet(
             f"""
             QPushButton {{
                 color: {COLORS['muted']};
                 background: transparent;
-                border: 0;
-                border-radius: 16px;
-                padding: 8px 10px;
+                border: 1px solid {COLORS['border']};
+                border-radius: 10px;
+                padding: 0;
                 font-size: 12px;
                 font-weight: 600;
                 text-align: center;
             }}
             QPushButton:hover {{
                 background: {COLORS['soft']};
+                border: 1px solid {COLORS['border']};
             }}
             """
         )
@@ -159,8 +189,8 @@ class SidebarWidget(QFrame):
     def _session_text(self, metrics: SessionMetrics) -> str:
         return ""
 
-    def _experience_text(self, metrics: SessionMetrics) -> str:
-        return f"{tr('metric.level_short')} {metrics.level} · {metrics.total_xp}/{metrics.next_level_xp} {tr('common.xp')}"
+    def _experience_text(self, metrics: ExperienceMetrics) -> str:
+        return f"{tr('metric.level_short')} {format_number(max(0, metrics.level))}"
 
     def _brand_text(self) -> str:
         return f"<span style='color:{COLORS['text']}'>Pomo</span><span style='color:{COLORS['red']}'>VN</span>"
