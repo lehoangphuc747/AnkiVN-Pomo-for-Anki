@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import html
+import random
 import re
+from pathlib import Path
 from typing import Optional
 
 from aqt.qt import (
@@ -21,6 +23,28 @@ from aqt.qt import (
     Qt,
 )
 
+try:
+    from aqt.qt import QUrl
+except Exception:  # pragma: no cover - depends on Anki's Qt binding
+    QUrl = None
+
+try:  # pragma: no cover - exercised inside Anki
+    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+    QMediaContent = None
+    QT_MULTIMEDIA_API = "qt6"
+except Exception:  # pragma: no cover - depends on Anki's Qt binding
+    try:
+        from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
+
+        QAudioOutput = None
+        QT_MULTIMEDIA_API = "qt5"
+    except Exception:
+        QAudioOutput = None
+        QMediaContent = None
+        QMediaPlayer = None
+        QT_MULTIMEDIA_API = ""
+
 from .i18n import tr
 from .popover_shell import PopoverShell
 from .style import COLORS, refresh_style
@@ -36,6 +60,27 @@ from .ui_components import (
 )
 
 
+SOUND_DIR = Path(__file__).resolve().parent.parent / "assets" / "sounds"
+
+BUILTIN_SOUNDS = (
+    {
+        "title_key": "audio.slow_rain",
+        "source_key": "audio.source_unfa",
+        "filename": "177479__unfa__slowly-raining-loop.flac",
+    },
+    {
+        "title_key": "audio.short_rain",
+        "source_key": "audio.source_dmk67",
+        "filename": "392980__dmk67__short-rain-loop.wav",
+    },
+    {
+        "title_key": "audio.skylight_rain",
+        "source_key": "audio.source_deadrobotmusic",
+        "filename": "663947__deadrobotmusic__looping-rain-on-skylight-foley-texture.wav",
+    },
+)
+
+
 class AudioPopover(PopoverShell):
     def __init__(self) -> None:
         super().__init__(320, spacing=0, shadow_margin=0)
@@ -43,6 +88,11 @@ class AudioPopover(PopoverShell):
         self._loop = False
         self._last_anchor: Optional[QWidget] = None
         self._youtube_web = None
+        self._player = None
+        self._audio_output = None
+        self._active_audio_path: Optional[Path] = None
+        self._loaded_audio_path: Optional[Path] = None
+        self._init_audio_player()
 
         root = self.content_layout
 
@@ -62,6 +112,10 @@ class AudioPopover(PopoverShell):
         self.youtube_input.returnPressed.connect(self._load_youtube)
         self.play_button.clicked.connect(self._toggle_playing)
         self.loop_button.clicked.connect(self._toggle_loop)
+        self.previous_button.clicked.connect(self._select_previous_builtin)
+        self.next_button.clicked.connect(self._select_next_builtin)
+        self.shuffle_button.clicked.connect(self._shuffle_builtin)
+        self._preset_changed()
 
     def show_at(self, anchor: QWidget) -> None:
         self._last_anchor = anchor
@@ -125,9 +179,9 @@ class AudioPopover(PopoverShell):
         text_box = QVBoxLayout()
         text_box.setContentsMargins(0, 0, 0, 0)
         text_box.setSpacing(2)
-        self.title = QLabel(tr("audio.title_lofi"))
+        self.title = QLabel(tr("audio.slow_rain"))
         self.title.setStyleSheet("font-size: 14px; font-weight: 650; color: #3E3C38;")
-        self.source = QLabel(tr("audio.source_chillhop"))
+        self.source = QLabel(tr("audio.source_unfa"))
         self.source.setStyleSheet(f"font-size: 11px; color: {COLORS['muted']};")
         text_box.addStretch(1)
         text_box.addWidget(self.title)
@@ -145,10 +199,10 @@ class AudioPopover(PopoverShell):
 
         section.addWidget(self._field_label(tr("audio.builtin_label")))
         self.preset = QComboBox()
-        self.preset.addItem(tr("audio.title_lofi"), (tr("audio.title_lofi"), tr("audio.source_chillhop")))
-        self.preset.addItem(tr("audio.rain"), (tr("audio.rain"), tr("audio.source_builtin")))
-        self.preset.addItem(tr("audio.brown_noise"), (tr("audio.brown_noise"), tr("audio.source_builtin")))
-        self.preset.addItem(tr("audio.soft_piano"), (tr("audio.soft_piano"), tr("audio.source_builtin")))
+        for sound in BUILTIN_SOUNDS:
+            title = tr(sound["title_key"])
+            source = tr(sound["source_key"])
+            self.preset.addItem(title, {**sound, "title": title, "source": source})
         self.preset.setStyleSheet(
             f"""
             QComboBox {{
@@ -351,12 +405,21 @@ class AudioPopover(PopoverShell):
         """
 
     def _preset_changed(self) -> None:
-        title, source = self.preset.currentData()
+        sound = self.preset.currentData()
+        if not isinstance(sound, dict):
+            return
+        title = str(sound.get("title") or "")
+        source = str(sound.get("source") or "")
         self.title.setText(title)
         self.source.setText(source)
         self.youtube_preview.hide()
         self._clear_youtube_preview()
-        self._set_status(tr("audio.using_builtin"), False)
+        self._active_audio_path = SOUND_DIR / str(sound.get("filename") or "")
+        self._loaded_audio_path = None
+        if self._playing:
+            self._play_active_builtin()
+        else:
+            self._set_status(tr("audio.using_builtin"), False)
 
     def _load_youtube(self) -> None:
         video_id = _youtube_video_id(self.youtube_input.text())
@@ -368,6 +431,7 @@ class AudioPopover(PopoverShell):
         self.youtube_preview.show()
         self._load_youtube_preview(video_id)
         self._set_status(tr("audio.loaded_youtube"), False)
+        self._stop_builtin()
         self._set_playing(True)
         if self.isVisible() and self._last_anchor is not None:
             self.show_at(self._last_anchor)
@@ -415,6 +479,13 @@ class AudioPopover(PopoverShell):
 
     def _set_playing(self, playing: bool) -> None:
         self._playing = playing
+        if self.youtube_preview.isVisible():
+            if not playing:
+                self._clear_youtube_preview()
+        elif playing:
+            self._play_active_builtin()
+        else:
+            self._pause_builtin()
         icon_path = PAUSE_ICON_PATH if playing else PLAY_ICON_PATH
         self.play_button.setIcon(QIcon(str(icon_path)))
         self.play_button.setIconSize(QSize(15 if playing else 17, 15 if playing else 17))
@@ -427,6 +498,93 @@ class AudioPopover(PopoverShell):
         self.loop_button.setStyleSheet(self._transport_style(background))
         self.loop_button.setProperty("active", self._loop)
         refresh_style(self.loop_button)
+
+    def _init_audio_player(self) -> None:
+        if QUrl is None or QMediaPlayer is None:
+            return
+        try:
+            self._player = QMediaPlayer(self)
+            if QT_MULTIMEDIA_API == "qt6" and QAudioOutput is not None:
+                self._audio_output = QAudioOutput(self)
+                self._audio_output.setVolume(0.65)
+                self._player.setAudioOutput(self._audio_output)
+            elif hasattr(self._player, "setVolume"):
+                self._player.setVolume(65)
+            if hasattr(self._player, "mediaStatusChanged"):
+                self._player.mediaStatusChanged.connect(self._media_status_changed)
+        except Exception:
+            self._player = None
+            self._audio_output = None
+
+    def _play_active_builtin(self) -> None:
+        path = self._active_audio_path
+        if path is None or not path.is_file():
+            self._set_status(tr("audio.local_missing"), True)
+            return
+        if self._player is None:
+            self._set_status(tr("audio.local_unavailable"), True)
+            return
+        try:
+            if self._loaded_audio_path != path:
+                url = QUrl.fromLocalFile(str(path))
+                if QT_MULTIMEDIA_API == "qt6":
+                    self._player.setSource(url)
+                else:
+                    self._player.setMedia(QMediaContent(url))
+                self._loaded_audio_path = path
+            self._player.play()
+            self._set_status(tr("audio.using_builtin"), False)
+        except Exception:
+            self._set_status(tr("audio.local_unavailable"), True)
+
+    def _pause_builtin(self) -> None:
+        if self._player is not None:
+            try:
+                self._player.pause()
+            except Exception:
+                pass
+
+    def _stop_builtin(self) -> None:
+        if self._player is not None:
+            try:
+                self._player.stop()
+            except Exception:
+                pass
+
+    def _media_status_changed(self, status) -> None:
+        if not self._is_end_of_media(status):
+            return
+        if self._loop and self._playing:
+            self._play_active_builtin()
+        else:
+            self._set_playing(False)
+
+    def _is_end_of_media(self, status) -> bool:
+        if QMediaPlayer is None:
+            return False
+        media_status = getattr(QMediaPlayer, "MediaStatus", None)
+        end_status = getattr(media_status, "EndOfMedia", None) if media_status is not None else None
+        if end_status is None:
+            end_status = getattr(QMediaPlayer, "EndOfMedia", None)
+        return end_status is not None and status == end_status
+
+    def _select_previous_builtin(self) -> None:
+        count = self.preset.count()
+        if count:
+            self.preset.setCurrentIndex((self.preset.currentIndex() - 1) % count)
+
+    def _select_next_builtin(self) -> None:
+        count = self.preset.count()
+        if count:
+            self.preset.setCurrentIndex((self.preset.currentIndex() + 1) % count)
+
+    def _shuffle_builtin(self) -> None:
+        count = self.preset.count()
+        if count < 2:
+            return
+        current = self.preset.currentIndex()
+        choices = [index for index in range(count) if index != current]
+        self.preset.setCurrentIndex(random.choice(choices))
 
 
 def _youtube_video_id(raw_url: str) -> Optional[str]:

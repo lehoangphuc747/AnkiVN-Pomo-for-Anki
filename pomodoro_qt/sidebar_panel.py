@@ -124,7 +124,7 @@ class SidebarWidget(QFrame):
         root.addLayout(metrics_layout)
 
         root.addStretch(1)
-        self.audio_button = make_audio_mini_button(tr("audio.title_lofi"))
+        self.audio_button = make_audio_mini_button(tr("audio.slow_rain"))
         root.addWidget(self.audio_button)
 
     def sync_state(self, state: PomodoroTimerState) -> None:
