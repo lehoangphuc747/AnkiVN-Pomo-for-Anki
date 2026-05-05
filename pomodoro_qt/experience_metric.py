@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-XP_PER_STUDIED_CARD = 1
+XP_PER_UNIQUE_CARD = 1
 XP_PER_ANKI_REVIEW_EVENT = 0
-XP_PER_COMPLETED_POMODORO = 10
 
 LEVEL_THRESHOLDS = {
     1: 0,
@@ -32,6 +31,7 @@ class ExperienceMetrics:
     experience_to_next_level: int = 20
     level_progress: int = 0
     streak_days: int = 0
+    unique_cards: int = 0
     again_cards: int = 0
     hard_cards: int = 0
     good_cards: int = 0
@@ -42,12 +42,12 @@ def answer_experience(ease: int | None = None) -> int:
     return XP_PER_ANKI_REVIEW_EVENT
 
 
-def studied_cards_experience(*, hard_cards: int = 0, good_cards: int = 0, easy_cards: int = 0) -> int:
+def unique_cards_experience(unique_cards: int = 0) -> int:
     try:
-        studied_cards = int(hard_cards) + int(good_cards) + int(easy_cards)
+        cards = int(unique_cards)
     except (TypeError, ValueError):
-        studied_cards = 0
-    return max(0, studied_cards) * XP_PER_STUDIED_CARD
+        cards = 0
+    return max(0, cards) * XP_PER_UNIQUE_CARD
 
 
 def level_state(experience: int) -> dict[str, int]:
@@ -86,10 +86,9 @@ def _level_threshold(level: int) -> int:
 
 __all__ = [
     "ExperienceMetrics",
-    "XP_PER_STUDIED_CARD",
+    "XP_PER_UNIQUE_CARD",
     "XP_PER_ANKI_REVIEW_EVENT",
-    "XP_PER_COMPLETED_POMODORO",
     "answer_experience",
-    "studied_cards_experience",
+    "unique_cards_experience",
     "level_state",
 ]

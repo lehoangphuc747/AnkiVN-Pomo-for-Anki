@@ -6,7 +6,7 @@ from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QVBox
 
 from .i18n import format_number, tr
 from .metric_popover import MetricPopover
-from .experience_metric import ExperienceMetrics, XP_PER_COMPLETED_POMODORO, XP_PER_STUDIED_CARD, studied_cards_experience
+from .experience_metric import ExperienceMetrics, XP_PER_UNIQUE_CARD, unique_cards_experience
 from .style import COLORS
 
 
@@ -151,45 +151,25 @@ class ExperiencePopover(MetricPopover):
         self.content_layout.addSpacing(14)
 
     def _add_xp_sources(self, metrics: ExperienceMetrics) -> None:
-        cards_count = max(0, metrics.hard_cards + metrics.good_cards + metrics.easy_cards)
-        cards_xp = studied_cards_experience(
-            hard_cards=metrics.hard_cards,
-            good_cards=metrics.good_cards,
-            easy_cards=metrics.easy_cards,
-        )
-        pomodoro_xp = max(0, metrics.experience - cards_xp)
-        completed_pomodoros = pomodoro_xp // max(1, XP_PER_COMPLETED_POMODORO)
+        unique_cards = max(0, int(metrics.unique_cards))
+        cards_xp = unique_cards_experience(unique_cards)
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.addWidget(
             self._xp_source_tile(
-                tr("experience.cards_studied_xp"),
+                tr("experience.unique_cards_xp"),
                 cards_xp,
                 tr(
-                    "experience.cards_studied_xp_detail",
-                    cards=format_number(cards_count),
-                    xp=format_number(XP_PER_STUDIED_CARD),
+                    "experience.unique_cards_xp_detail",
+                    cards=format_number(unique_cards),
+                    xp=format_number(XP_PER_UNIQUE_CARD),
                 ),
                 COLORS["text"],
             ),
             0,
             0,
-        )
-        grid.addWidget(
-            self._xp_source_tile(
-                tr("experience.pomodoro_xp"),
-                pomodoro_xp,
-                tr(
-                    "experience.pomodoro_xp_detail",
-                    pomodoros=format_number(completed_pomodoros),
-                    xp=format_number(XP_PER_COMPLETED_POMODORO),
-                ),
-                COLORS["red"],
-            ),
-            0,
-            1,
         )
         self.content_layout.addLayout(grid)
         self.content_layout.addSpacing(14)

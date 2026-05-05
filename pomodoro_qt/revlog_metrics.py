@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from .anki_day import anki_rollover_seconds, anki_today_start, day_key, seconds_until_cutoff
 from .cards_metric import CardsStudiedMetrics
-from .experience_metric import ExperienceMetrics, level_state, studied_cards_experience
+from .experience_metric import ExperienceMetrics, level_state, unique_cards_experience
 from .retention_metric import RetentionMetrics
 from .streak_metric import StreakMetrics
 
@@ -15,6 +15,7 @@ from .streak_metric import StreakMetrics
 @dataclass(frozen=True)
 class EaseCounts:
     cards: int = 0
+    unique_cards: int = 0
     again_cards: int = 0
     hard_cards: int = 0
     good_cards: int = 0
@@ -24,6 +25,7 @@ class EaseCounts:
 @dataclass(frozen=True)
 class TodayRevlogCounts:
     cards: int = 0
+    unique_cards: int = 0
     learning_cards: int = 0
     review_cards: int = 0
     relearning_cards: int = 0
@@ -36,6 +38,7 @@ class TodayRevlogCounts:
     def ease_counts(self) -> EaseCounts:
         return EaseCounts(
             cards=self.cards,
+            unique_cards=self.unique_cards,
             again_cards=self.again_cards,
             hard_cards=self.hard_cards,
             good_cards=self.good_cards,
@@ -178,6 +181,7 @@ class RevlogMetricsSource:
                 """
                 SELECT
                     COUNT(*) AS cards,
+                    COUNT(DISTINCT cid) AS unique_cards,
                     SUM(CASE WHEN ease = 1 THEN 1 ELSE 0 END) AS again_cards,
                     SUM(CASE WHEN ease = 2 THEN 1 ELSE 0 END) AS hard_cards,
                     SUM(CASE WHEN ease = 3 THEN 1 ELSE 0 END) AS good_cards,
@@ -214,6 +218,7 @@ def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:
             """
             SELECT
                 COUNT(*) AS cards,
+                COUNT(DISTINCT cid) AS unique_cards,
                 SUM(CASE WHEN type = 0 THEN 1 ELSE 0 END) AS learning_cards,
                 SUM(CASE WHEN type = 1 THEN 1 ELSE 0 END) AS review_cards,
                 SUM(CASE WHEN type = 2 THEN 1 ELSE 0 END) AS relearning_cards,
@@ -232,14 +237,15 @@ def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:
     )
     return TodayRevlogCounts(
         cards=_int_at(values, 0),
-        learning_cards=_int_at(values, 1),
-        review_cards=_int_at(values, 2),
-        relearning_cards=_int_at(values, 3),
-        filtered_cards=_int_at(values, 4),
-        again_cards=_int_at(values, 5),
-        hard_cards=_int_at(values, 6),
-        good_cards=_int_at(values, 7),
-        easy_cards=_int_at(values, 8),
+        unique_cards=_int_at(values, 1),
+        learning_cards=_int_at(values, 2),
+        review_cards=_int_at(values, 3),
+        relearning_cards=_int_at(values, 4),
+        filtered_cards=_int_at(values, 5),
+        again_cards=_int_at(values, 6),
+        hard_cards=_int_at(values, 7),
+        good_cards=_int_at(values, 8),
+        easy_cards=_int_at(values, 9),
     )
 
 
@@ -302,12 +308,16 @@ def _experience_metrics(
         return ExperienceMetrics()
     if streak.days == 1 and streak_start == anki_today:
         counts = today.ease_counts()
+        unique_cards = today.unique_cards
     else:
+        start_ms = _day_start_ms(streak_start, rollover_seconds)
+        end_ms = _day_start_ms(anki_today + 86400, rollover_seconds)
         counts = _ease_counts(
             db.first(
                 """
                 SELECT
                     COUNT(*) AS cards,
+                    COUNT(DISTINCT cid) AS unique_cards_for_reference,
                     SUM(CASE WHEN ease = 1 THEN 1 ELSE 0 END) AS again_cards,
                     SUM(CASE WHEN ease = 2 THEN 1 ELSE 0 END) AS hard_cards,
                     SUM(CASE WHEN ease = 3 THEN 1 ELSE 0 END) AS good_cards,
@@ -315,15 +325,12 @@ def _experience_metrics(
                 FROM revlog
                 WHERE id >= ? AND id < ? AND ease BETWEEN 1 AND 4
                 """,
-                _day_start_ms(streak_start, rollover_seconds),
-                _day_start_ms(anki_today + 86400, rollover_seconds),
+                start_ms,
+                end_ms,
             )
         )
-    experience = studied_cards_experience(
-        hard_cards=counts.hard_cards,
-        good_cards=counts.good_cards,
-        easy_cards=counts.easy_cards,
-    )
+        unique_cards = _unique_cards_by_anki_day_in_range(db, start_ms, end_ms, rollover_seconds)
+    experience = unique_cards_experience(unique_cards)
     level = level_state(experience)
     return ExperienceMetrics(
         level=level["level"],
@@ -333,6 +340,7 @@ def _experience_metrics(
         experience_to_next_level=level["experience_to_next_level"],
         level_progress=level["progress"],
         streak_days=streak.days,
+        unique_cards=unique_cards,
         again_cards=counts.again_cards,
         hard_cards=counts.hard_cards,
         good_cards=counts.good_cards,
@@ -340,20 +348,46 @@ def _experience_metrics(
     )
 
 
+def _unique_cards_by_anki_day_in_range(db: Any, start_ms: int, end_ms: int, rollover_seconds: int) -> int:
+    row = db.first(
+        """
+        SELECT COUNT(*) FROM (
+            SELECT
+                CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day') AS int) AS day,
+                cid
+            FROM revlog
+            WHERE id >= ? AND id < ? AND ease BETWEEN 1 AND 4
+            GROUP BY day, cid
+        )
+        """,
+        rollover_seconds,
+        start_ms,
+        end_ms,
+    )
+    if row is None:
+        return 0
+    try:
+        return max(0, int(row[0]))
+    except (TypeError, ValueError, IndexError):
+        return 0
+
+
 def _ease_counts(row: object) -> EaseCounts:
     values = list(row) if row is not None else []
     return EaseCounts(
         cards=_int_at(values, 0),
-        again_cards=_int_at(values, 1),
-        hard_cards=_int_at(values, 2),
-        good_cards=_int_at(values, 3),
-        easy_cards=_int_at(values, 4),
+        unique_cards=_int_at(values, 1),
+        again_cards=_int_at(values, 2),
+        hard_cards=_int_at(values, 3),
+        good_cards=_int_at(values, 4),
+        easy_cards=_int_at(values, 5),
     )
 
 
 def _increment_ease_counts(counts: EaseCounts, ease: int) -> EaseCounts:
     return EaseCounts(
         cards=counts.cards + 1,
+        unique_cards=counts.unique_cards,
         again_cards=counts.again_cards + (1 if ease == 1 else 0),
         hard_cards=counts.hard_cards + (1 if ease == 2 else 0),
         good_cards=counts.good_cards + (1 if ease == 3 else 0),

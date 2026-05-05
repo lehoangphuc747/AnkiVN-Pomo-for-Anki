@@ -124,6 +124,8 @@ class PomodoroAnalyticsStore:
         except Exception as exc:
             self._handle_error("record_answer", exc)
 
+    # Legacy helper retained for backward compatibility. New XP logic is
+    # revlog-backed, and Pomodoro completion must not call this.
     def add_session_xp(self, session: StudySessionState, *, xp: int, updated_at: str, day: str) -> None:
         try:
             xp = max(0, int(xp))

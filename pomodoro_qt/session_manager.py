@@ -15,7 +15,7 @@ from .models import (
     TimerRuntimeState,
 )
 from .analytics_store import PomodoroAnalyticsStore
-from .experience_metric import XP_PER_COMPLETED_POMODORO, answer_experience, level_state
+from .experience_metric import answer_experience, level_state
 from .storage import PomodoroDataStore
 from .tracking import ReviewAnswerEvent
 
@@ -110,14 +110,9 @@ class PomodoroSessionManager:
 
     def complete_pomodoro(self, duration_seconds: int) -> SessionMetrics:
         session = self.ensure_active_session()
-        if self._analytics_store is not None:
-            self._analytics_store.add_session_xp(
-                session,
-                xp=XP_PER_COMPLETED_POMODORO,
-                updated_at=_now_iso(),
-                day=_today_key(),
-            )
+
         completed_metrics = self.metrics()
+
         if self._analytics_store is not None:
             self._analytics_store.finalize_session(
                 session,

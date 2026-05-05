@@ -9,10 +9,9 @@ from uuid import uuid4
 from pomodoro_qt.analytics_store import PomodoroAnalyticsStore
 from pomodoro_qt.experience_metric import (
     XP_PER_ANKI_REVIEW_EVENT,
-    XP_PER_COMPLETED_POMODORO,
-    XP_PER_STUDIED_CARD,
+    XP_PER_UNIQUE_CARD,
     answer_experience,
-    studied_cards_experience,
+    unique_cards_experience,
 )
 from pomodoro_qt.session_manager import PomodoroSessionManager
 from pomodoro_qt.storage import PomodoroDataStore
@@ -38,10 +37,11 @@ class GradeNeutralXpTests(unittest.TestCase):
 
         self.assertEqual(values, [XP_PER_ANKI_REVIEW_EVENT] * len(values))
 
-    def test_studied_cards_experience_excludes_again(self) -> None:
-        xp = studied_cards_experience(hard_cards=1, good_cards=2, easy_cards=3)
-
-        self.assertEqual(xp, 6 * XP_PER_STUDIED_CARD)
+    def test_unique_cards_experience_uses_integer_unique_cards(self) -> None:
+        self.assertEqual(unique_cards_experience(0), 0)
+        self.assertEqual(unique_cards_experience(5), 5 * XP_PER_UNIQUE_CARD)
+        self.assertEqual(unique_cards_experience(-10), 0)
+        self.assertEqual(unique_cards_experience("bad"), 0)
 
     def test_review_grades_do_not_add_storage_xp_and_keep_grade_stats(self) -> None:
         with _profile_dir() as temp_dir:
@@ -68,7 +68,7 @@ class GradeNeutralXpTests(unittest.TestCase):
             self.assertEqual(daily["xp"], 0)
             self.assertEqual((daily["again"], daily["hard"], daily["good"], daily["easy"]), (1, 1, 1, 1))
 
-    def test_completed_pomodoro_adds_bonus_separately(self) -> None:
+    def test_completed_pomodoro_does_not_add_xp(self) -> None:
         with _profile_dir() as temp_dir:
             manager, analytics = _manager(Path(temp_dir))
             for ease in (1, 3):
@@ -76,18 +76,17 @@ class GradeNeutralXpTests(unittest.TestCase):
 
             completed = manager.complete_pomodoro(duration_seconds=25 * 60)
 
-            expected_xp = XP_PER_COMPLETED_POMODORO
-            self.assertEqual(completed.session_xp, expected_xp)
-            self.assertEqual(completed.total_xp, expected_xp)
+            self.assertEqual(completed.session_xp, 0)
+            self.assertEqual(completed.total_xp, 0)
 
             data = analytics.export_data()
             self.assertEqual(len(data["review_events"]), 2)
-            self.assertEqual(data["sessions"][0]["xp"], expected_xp)
+            self.assertEqual(data["sessions"][0]["xp"], 0)
             self.assertEqual(data["sessions"][0]["completed"], 1)
 
             daily = data["daily_stats"][0]
             self.assertEqual(daily["cards"], 2)
-            self.assertEqual(daily["xp"], expected_xp)
+            self.assertEqual(daily["xp"], 0)
             self.assertEqual((daily["again"], daily["hard"], daily["good"], daily["easy"]), (1, 0, 1, 0))
 
     def test_stopped_session_does_not_receive_pomodoro_bonus(self) -> None:

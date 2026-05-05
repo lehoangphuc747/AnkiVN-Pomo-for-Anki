@@ -338,7 +338,7 @@ class PomodoroAddonController:
     def _apply_revlog_metrics(self) -> None:
         snapshot = self.revlog_metrics_source.metrics()
         self.cards_metrics = snapshot.cards
-        total_experience = max(0, snapshot.experience.experience) + max(0, self.metrics.total_xp)
+        total_experience = max(0, snapshot.experience.experience)
         level = level_state(total_experience)
         self.experience_metrics = ExperienceMetrics(
             level=level["level"],
@@ -348,6 +348,7 @@ class PomodoroAddonController:
             experience_to_next_level=level["experience_to_next_level"],
             level_progress=level["progress"],
             streak_days=snapshot.experience.streak_days,
+            unique_cards=snapshot.experience.unique_cards,
             again_cards=snapshot.experience.again_cards,
             hard_cards=snapshot.experience.hard_cards,
             good_cards=snapshot.experience.good_cards,
