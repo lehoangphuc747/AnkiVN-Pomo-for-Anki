@@ -57,9 +57,9 @@ class RevlogMetricsSource:
     def __init__(self, mw: Any) -> None:
         self._mw = mw
         self._snapshot: RevlogMetricsSnapshot | None = None
-        self._snapshot_today: int | None = None
+        self._snapshot_key: tuple[int, int] | None = None
         self._day_rollup: dict[int, int] | None = None
-        self._day_rollup_today: int | None = None
+        self._day_rollup_key: tuple[int, int] | None = None
         self._all_time_counts: EaseCounts | None = None
         self.last_debug: dict[str, Any] = {}
         self.last_error: Exception | None = None
@@ -72,7 +72,8 @@ class RevlogMetricsSource:
                 return _empty_snapshot()
             rollover_seconds = anki_rollover_seconds(col)
             anki_today = anki_today_start(db, rollover_seconds)
-            if self._snapshot is not None and self._snapshot_today == anki_today:
+            cache_key = (anki_today, rollover_seconds)
+            if self._snapshot is not None and self._snapshot_key == cache_key:
                 return self._cached_snapshot(anki_today, rollover_seconds)
 
             start_ms = _day_start_ms(anki_today, rollover_seconds)
@@ -91,7 +92,7 @@ class RevlogMetricsSource:
                 streak=streak,
             )
             self._snapshot = snapshot
-            self._snapshot_today = anki_today
+            self._snapshot_key = cache_key
             self.last_debug = _debug_payload(snapshot, anki_today, rollover_seconds, start_ms, end_ms)
             self.last_error = None
             return snapshot
@@ -109,8 +110,9 @@ class RevlogMetricsSource:
                 return
             rollover_seconds = anki_rollover_seconds(col)
             anki_today = anki_today_start(db, rollover_seconds)
+            cache_key = (anki_today, rollover_seconds)
             normalized_ease = _ease(ease)
-            if self._snapshot_today != anki_today:
+            if self._snapshot_key != cache_key:
                 self._clear_snapshot()
                 self._clear_day_rollup()
                 self._increment_cached_all_time(normalized_ease)
@@ -120,6 +122,18 @@ class RevlogMetricsSource:
             self._snapshot = None
         except Exception:
             self._clear_snapshot()
+
+    def seconds_until_cutoff(self) -> int:
+        try:
+            col = getattr(self._mw, "col", None)
+            db = getattr(col, "db", None)
+            if db is None:
+                return 3600
+            rollover_seconds = anki_rollover_seconds(col)
+            anki_today = anki_today_start(db, rollover_seconds)
+            return seconds_until_cutoff(anki_today, rollover_seconds)
+        except Exception:
+            return 3600
 
     def _cached_snapshot(self, anki_today: int, rollover_seconds: int) -> RevlogMetricsSnapshot:
         assert self._snapshot is not None
@@ -137,7 +151,8 @@ class RevlogMetricsSource:
         return self._snapshot
 
     def _reviews_by_day(self, db: Any, anki_today: int, rollover_seconds: int) -> dict[int, int]:
-        if self._day_rollup is not None and self._day_rollup_today == anki_today:
+        cache_key = (anki_today, rollover_seconds)
+        if self._day_rollup is not None and self._day_rollup_key == cache_key:
             return self._day_rollup
         rows = db.all(
             """
@@ -152,7 +167,7 @@ class RevlogMetricsSource:
             rollover_seconds,
         )
         self._day_rollup = {_int(day): _int(reviews) for day, reviews in rows if day is not None}
-        self._day_rollup_today = anki_today
+        self._day_rollup_key = cache_key
         return self._day_rollup
 
     def _all_time(self, db: Any) -> EaseCounts:
@@ -175,7 +190,7 @@ class RevlogMetricsSource:
         return self._all_time_counts
 
     def _increment_cached_day(self, anki_today: int) -> None:
-        if self._day_rollup is None or self._day_rollup_today != anki_today:
+        if self._day_rollup is None or self._day_rollup_key is None or self._day_rollup_key[0] != anki_today:
             return
         self._day_rollup[anki_today] = max(0, self._day_rollup.get(anki_today, 0)) + 1
 
@@ -186,11 +201,11 @@ class RevlogMetricsSource:
 
     def _clear_snapshot(self) -> None:
         self._snapshot = None
-        self._snapshot_today = None
+        self._snapshot_key = None
 
     def _clear_day_rollup(self) -> None:
         self._day_rollup = None
-        self._day_rollup_today = None
+        self._day_rollup_key = None
 
 
 def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:

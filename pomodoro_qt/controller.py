@@ -79,6 +79,9 @@ class PomodoroAddonController:
 
         self._last_completed_metrics: Optional[SessionMetrics] = None
         self._last_timer_signature = None
+        self._anki_day_refresh_timer = QTimer(mw)
+        self._anki_day_refresh_timer.setSingleShot(True)
+        self._anki_day_refresh_timer.timeout.connect(self._on_anki_day_rollover)
         self.settings_action: Optional[QAction] = None
         self._storage_warning_shown = False
         self._config_warning_shown = False
@@ -102,6 +105,7 @@ class PomodoroAddonController:
         self._mark_timer_started_if_running()
         self._add_menu_action()
         self.anki_bridge.install()
+        self._schedule_anki_day_refresh()
         QTimer.singleShot(0, self.update_visibility)
 
     def update_visibility(self) -> None:
@@ -169,6 +173,7 @@ class PomodoroAddonController:
         QTimer.singleShot(0, self.update_visibility)
 
     def _on_profile_will_close(self, *args) -> None:
+        self._anki_day_refresh_timer.stop()
         self._save_runtime_state()
         self.ui.hide_all_layouts()
 
@@ -296,6 +301,7 @@ class PomodoroAddonController:
             self.retention_metrics,
             self.streak_metrics,
         )
+        self._schedule_anki_day_refresh()
 
     def _make_metric_popover(self, name: str):
         if name == "session":
@@ -349,6 +355,14 @@ class PomodoroAddonController:
         )
         self.retention_metrics = snapshot.retention
         self.streak_metrics = snapshot.streak
+
+    def _schedule_anki_day_refresh(self) -> None:
+        seconds = max(1, int(self.revlog_metrics_source.seconds_until_cutoff()))
+        delay_ms = (seconds + 2) * 1000
+        self._anki_day_refresh_timer.start(delay_ms)
+
+    def _on_anki_day_rollover(self) -> None:
+        self._refresh_metrics()
 
     def _deck_name_for_id(self, deck_id: Optional[int]) -> str:
         if deck_id is None:
