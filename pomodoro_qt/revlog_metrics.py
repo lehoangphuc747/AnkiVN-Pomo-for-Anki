@@ -9,6 +9,7 @@ from .anki_day import anki_rollover_seconds, anki_today_start, day_key, seconds_
 from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics, level_state, unique_cards_experience
 from .retention_metric import RetentionMetrics
+from .study_time_metric import StudyTimeMetrics
 from .streak_metric import StreakMetrics
 
 
@@ -20,6 +21,7 @@ class EaseCounts:
     hard_cards: int = 0
     good_cards: int = 0
     easy_cards: int = 0
+    study_time_ms: int = 0
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,7 @@ class TodayRevlogCounts:
     hard_cards: int = 0
     good_cards: int = 0
     easy_cards: int = 0
+    study_time_ms: int = 0
 
     def ease_counts(self) -> EaseCounts:
         return EaseCounts(
@@ -43,6 +46,7 @@ class TodayRevlogCounts:
             hard_cards=self.hard_cards,
             good_cards=self.good_cards,
             easy_cards=self.easy_cards,
+            study_time_ms=self.study_time_ms,
         )
 
 
@@ -52,6 +56,7 @@ class RevlogMetricsSnapshot:
     experience: ExperienceMetrics
     retention: RetentionMetrics
     streak: StreakMetrics
+    study_time: StudyTimeMetrics
 
 
 class RevlogMetricsSource:
@@ -60,10 +65,11 @@ class RevlogMetricsSource:
     def __init__(self, mw: Any) -> None:
         self._mw = mw
         self._snapshot: RevlogMetricsSnapshot | None = None
-        self._snapshot_key: tuple[int, int] | None = None
+        self._snapshot_key: tuple[int, int, int] | None = None
         self._day_rollup: dict[int, int] | None = None
-        self._day_rollup_key: tuple[int, int] | None = None
+        self._day_rollup_key: tuple[int, int, int] | None = None
         self._all_time_counts: EaseCounts | None = None
+        self._all_time_key: int | None = None
         self.last_debug: dict[str, Any] = {}
         self.last_error: Exception | None = None
 
@@ -75,24 +81,27 @@ class RevlogMetricsSource:
                 return _empty_snapshot()
             rollover_seconds = anki_rollover_seconds(col)
             anki_today = anki_today_start(db, rollover_seconds)
-            cache_key = (anki_today, rollover_seconds)
+            collection_key = id(col)
+            cache_key = (collection_key, anki_today, rollover_seconds)
             if self._snapshot is not None and self._snapshot_key == cache_key:
                 return self._cached_snapshot(anki_today, rollover_seconds)
 
             start_ms = _day_start_ms(anki_today, rollover_seconds)
             end_ms = start_ms + 86400 * 1000
-            reviews_by_day = self._reviews_by_day(db, anki_today, rollover_seconds)
+            reviews_by_day = self._reviews_by_day(db, collection_key, anki_today, rollover_seconds)
             today = _today_counts(db, start_ms, end_ms)
-            all_time = self._all_time(db)
+            all_time = self._all_time(db, collection_key)
             streak = _streak_metrics(reviews_by_day, anki_today, rollover_seconds)
             experience = _experience_metrics(db, streak, anki_today, rollover_seconds, today)
             cards = _cards_metrics(today)
             retention = _retention_metrics(today.ease_counts(), all_time)
+            study_time = _study_time_metrics(today, all_time, anki_today, rollover_seconds)
             snapshot = RevlogMetricsSnapshot(
                 cards=cards,
                 experience=experience,
                 retention=retention,
                 streak=streak,
+                study_time=study_time,
             )
             self._snapshot = snapshot
             self._snapshot_key = cache_key
@@ -113,18 +122,23 @@ class RevlogMetricsSource:
                 return
             rollover_seconds = anki_rollover_seconds(col)
             anki_today = anki_today_start(db, rollover_seconds)
-            cache_key = (anki_today, rollover_seconds)
+            collection_key = id(col)
+            cache_key = (collection_key, anki_today, rollover_seconds)
             normalized_ease = _ease(ease)
             if self._snapshot_key != cache_key:
                 self._clear_snapshot()
                 self._clear_day_rollup()
-                self._increment_cached_all_time(normalized_ease)
+                self._clear_all_time()
                 return
             self._increment_cached_day(anki_today)
             self._increment_cached_all_time(normalized_ease)
             self._snapshot = None
         except Exception:
             self._clear_snapshot()
+
+    def invalidate_today_snapshot(self) -> None:
+        self._clear_snapshot()
+        self._clear_all_time()
 
     def seconds_until_cutoff(self) -> int:
         try:
@@ -153,8 +167,8 @@ class RevlogMetricsSource:
         self.last_error = None
         return self._snapshot
 
-    def _reviews_by_day(self, db: Any, anki_today: int, rollover_seconds: int) -> dict[int, int]:
-        cache_key = (anki_today, rollover_seconds)
+    def _reviews_by_day(self, db: Any, collection_key: int, anki_today: int, rollover_seconds: int) -> dict[int, int]:
+        cache_key = (collection_key, anki_today, rollover_seconds)
         if self._day_rollup is not None and self._day_rollup_key == cache_key:
             return self._day_rollup
         rows = db.all(
@@ -173,8 +187,8 @@ class RevlogMetricsSource:
         self._day_rollup_key = cache_key
         return self._day_rollup
 
-    def _all_time(self, db: Any) -> EaseCounts:
-        if self._all_time_counts is not None:
+    def _all_time(self, db: Any, collection_key: int) -> EaseCounts:
+        if self._all_time_counts is not None and self._all_time_key == collection_key:
             return self._all_time_counts
         self._all_time_counts = _ease_counts(
             db.first(
@@ -185,16 +199,18 @@ class RevlogMetricsSource:
                     SUM(CASE WHEN ease = 1 THEN 1 ELSE 0 END) AS again_cards,
                     SUM(CASE WHEN ease = 2 THEN 1 ELSE 0 END) AS hard_cards,
                     SUM(CASE WHEN ease = 3 THEN 1 ELSE 0 END) AS good_cards,
-                    SUM(CASE WHEN ease = 4 THEN 1 ELSE 0 END) AS easy_cards
+                    SUM(CASE WHEN ease = 4 THEN 1 ELSE 0 END) AS easy_cards,
+                    COALESCE(SUM(CASE WHEN time > 0 THEN time ELSE 0 END), 0) AS study_time_ms
                 FROM revlog
                 WHERE ease BETWEEN 1 AND 4
                 """
             )
         )
+        self._all_time_key = collection_key
         return self._all_time_counts
 
     def _increment_cached_day(self, anki_today: int) -> None:
-        if self._day_rollup is None or self._day_rollup_key is None or self._day_rollup_key[0] != anki_today:
+        if self._day_rollup is None or self._day_rollup_key is None or self._day_rollup_key[1] != anki_today:
             return
         self._day_rollup[anki_today] = max(0, self._day_rollup.get(anki_today, 0)) + 1
 
@@ -211,6 +227,10 @@ class RevlogMetricsSource:
         self._day_rollup = None
         self._day_rollup_key = None
 
+    def _clear_all_time(self) -> None:
+        self._all_time_counts = None
+        self._all_time_key = None
+
 
 def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:
     values = list(
@@ -226,7 +246,8 @@ def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:
                 SUM(CASE WHEN ease = 1 THEN 1 ELSE 0 END) AS again_cards,
                 SUM(CASE WHEN ease = 2 THEN 1 ELSE 0 END) AS hard_cards,
                 SUM(CASE WHEN ease = 3 THEN 1 ELSE 0 END) AS good_cards,
-                SUM(CASE WHEN ease = 4 THEN 1 ELSE 0 END) AS easy_cards
+                SUM(CASE WHEN ease = 4 THEN 1 ELSE 0 END) AS easy_cards,
+                COALESCE(SUM(CASE WHEN time > 0 THEN time ELSE 0 END), 0) AS study_time_ms
             FROM revlog
             WHERE id >= ? AND id < ? AND ease BETWEEN 1 AND 4
             """,
@@ -246,6 +267,7 @@ def _today_counts(db: Any, start_ms: int, end_ms: int) -> TodayRevlogCounts:
         hard_cards=_int_at(values, 7),
         good_cards=_int_at(values, 8),
         easy_cards=_int_at(values, 9),
+        study_time_ms=_int_at(values, 10),
     )
 
 
@@ -275,6 +297,22 @@ def _retention_metrics(today: EaseCounts, all_time: EaseCounts) -> RetentionMetr
         easy_cards=today.easy_cards,
         all_time_retention=_retention(all_time),
         all_time_cards=all_time.cards,
+    )
+
+
+def _study_time_metrics(
+    today: TodayRevlogCounts,
+    all_time: EaseCounts,
+    anki_today: int,
+    rollover_seconds: int,
+) -> StudyTimeMetrics:
+    return StudyTimeMetrics(
+        today_seconds=_milliseconds_to_seconds(today.study_time_ms),
+        all_time_seconds=_milliseconds_to_seconds(all_time.study_time_ms),
+        today_reviews=today.cards,
+        all_time_reviews=all_time.cards,
+        cutoff_seconds=rollover_seconds,
+        seconds_until_cutoff=seconds_until_cutoff(anki_today, rollover_seconds),
     )
 
 
@@ -381,6 +419,7 @@ def _ease_counts(row: object) -> EaseCounts:
         hard_cards=_int_at(values, 3),
         good_cards=_int_at(values, 4),
         easy_cards=_int_at(values, 5),
+        study_time_ms=_int_at(values, 6),
     )
 
 
@@ -392,6 +431,7 @@ def _increment_ease_counts(counts: EaseCounts, ease: int) -> EaseCounts:
         hard_cards=counts.hard_cards + (1 if ease == 2 else 0),
         good_cards=counts.good_cards + (1 if ease == 3 else 0),
         easy_cards=counts.easy_cards + (1 if ease == 4 else 0),
+        study_time_ms=counts.study_time_ms,
     )
 
 
@@ -475,6 +515,7 @@ def _debug_payload(
         "experience": snapshot.experience.experience,
         "level": snapshot.experience.level,
         "streak_days": snapshot.streak.days,
+        "study_time_seconds": snapshot.study_time.today_seconds,
     }
 
 
@@ -484,11 +525,12 @@ def _empty_snapshot() -> RevlogMetricsSnapshot:
         experience=ExperienceMetrics(),
         retention=RetentionMetrics(),
         streak=StreakMetrics(),
+        study_time=StudyTimeMetrics(),
     )
 
 
 def _day_start_ms(day_start: int, rollover_seconds: int) -> int:
-    return (int(day_start) + int(rollover_seconds)) * 1000
+    return int(day_start) * 1000
 
 
 def _ease(value: int | None) -> int:
@@ -506,6 +548,10 @@ def _int_at(values: list, index: int) -> int:
     if index >= len(values):
         return 0
     return max(0, _int(values[index]))
+
+
+def _milliseconds_to_seconds(milliseconds: int) -> int:
+    return max(0, round(max(0, int(milliseconds)) / 1000))
 
 
 __all__ = ["RevlogMetricsSource", "RevlogMetricsSnapshot"]

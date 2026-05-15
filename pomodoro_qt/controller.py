@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from aqt.qt import QAction, QDialog, QInputDialog, QMessageBox, QTimer
@@ -20,6 +22,7 @@ from .retention import make_retention_popover
 from .revlog_metrics import RevlogMetricsSource
 from .session_history import make_session_history_popover
 from .session_manager import PomodoroSessionManager
+from .study_time import make_study_time_popover
 from .settings_dialog import SettingsDialog
 from .storage import PomodoroDataStore, default_state
 from .style import addon_qss
@@ -37,6 +40,8 @@ class PomodoroAddonController:
     def __init__(self, mw, addon_package: str) -> None:
         self.mw = mw
         self.addon_package = addon_package
+        self._profile_active = True
+        self._profile_folder = self._current_profile_folder()
         self.config_store = ConfigStore(mw, addon_package)
         self.settings = self.config_store.load()
         set_language(self.settings.language)
@@ -61,13 +66,7 @@ class PomodoroAddonController:
             self.open_settings,
             self._save_corner_position,
         )
-        self.backup_manager = BackupManager(
-            lambda: self.settings,
-            self.data_store.load,
-            self.analytics_store.export_data,
-            self._save_runtime_state,
-            self._apply_imported_backup,
-        )
+        self.backup_manager = self._make_backup_manager()
         self.anki_bridge = AnkiBridge(
             self._on_anki_state_changed,
             self._on_reviewer_refreshed,
@@ -79,6 +78,9 @@ class PomodoroAddonController:
 
         self._last_completed_metrics: Optional[SessionMetrics] = None
         self._last_timer_signature = None
+        self._revlog_refresh_timer = QTimer(mw)
+        self._revlog_refresh_timer.setSingleShot(True)
+        self._revlog_refresh_timer.timeout.connect(self._refresh_revlog_metrics_after_answer)
         self._anki_day_refresh_timer = QTimer(mw)
         self._anki_day_refresh_timer.setSingleShot(True)
         self._anki_day_refresh_timer.timeout.connect(self._on_anki_day_rollover)
@@ -98,6 +100,7 @@ class PomodoroAddonController:
             self.cards_metrics,
             self.retention_metrics,
             self.streak_metrics,
+            self.study_time_metrics,
             self.session_manager.audio_state(),
         )
         self._connect_timer()
@@ -107,6 +110,51 @@ class PomodoroAddonController:
         self.anki_bridge.install()
         self._schedule_anki_day_refresh()
         QTimer.singleShot(0, self.update_visibility)
+
+    def rebind_profile(self, mw=None) -> None:
+        """Rebuild profile-local state after Anki opens or switches profile."""
+        if mw is not None:
+            self.mw = mw
+        self._profile_active = True
+        self._profile_folder = self._current_profile_folder()
+        self._log_profile_event("profile_did_open.rebind.begin")
+
+        self._revlog_refresh_timer.stop()
+        self._anki_day_refresh_timer.stop()
+        self.ui.hide_floating_popovers()
+        self.tracker.on_reviewer_end()
+
+        self.config_store = ConfigStore(self.mw, self.addon_package)
+        self.settings = self.config_store.load()
+        set_language(self.settings.language)
+        self.data_store = PomodoroDataStore(self.mw, self.addon_package)
+        self.analytics_store = PomodoroAnalyticsStore(self.mw, self.addon_package)
+        self.revlog_metrics_source = RevlogMetricsSource(self.mw)
+        self.session_manager = PomodoroSessionManager(self.data_store, self.analytics_store)
+        self.backup_manager = self._make_backup_manager()
+
+        self.metrics = self.session_manager.metrics()
+        self._apply_revlog_metrics()
+        self._last_completed_metrics = None
+        self._last_timer_signature = None
+        self._storage_warning_shown = False
+
+        self.timer.apply_settings(self.settings)
+        self.timer.restore_state(self.session_manager.timer_state())
+        self._update_menu_text()
+        self._rebuild_ui()
+        self.update_visibility()
+        self._schedule_anki_day_refresh()
+        self._log_profile_event("profile_did_open.rebind.done")
+
+    def _make_backup_manager(self) -> BackupManager:
+        return BackupManager(
+            lambda: self.settings,
+            lambda: self.data_store.load(),
+            lambda: self.analytics_store.export_data(),
+            self._save_runtime_state,
+            self._apply_imported_backup,
+        )
 
     def update_visibility(self) -> None:
         self.ui.update_visibility(self.settings)
@@ -173,11 +221,20 @@ class PomodoroAddonController:
         QTimer.singleShot(0, self.update_visibility)
 
     def _on_profile_will_close(self, *args) -> None:
+        self._log_profile_event("profile_will_close.begin")
+        self._revlog_refresh_timer.stop()
         self._anki_day_refresh_timer.stop()
         self._save_runtime_state()
+        self.tracker.on_reviewer_end()
+        self.timer.suspend()
+        self.ui.hide_floating_popovers()
         self.ui.hide_all_layouts()
+        self._profile_active = False
+        self._log_profile_event("profile_will_close.done")
 
     def _sync_timer_state(self, *args) -> None:
+        if not self._profile_active:
+            return
         state = self.timer.state()
         self.ui.sync_timer_state(state)
         signature = (state.mode, state.total_seconds, state.paused, state.started)
@@ -275,10 +332,13 @@ class PomodoroAddonController:
             self._warn_config_failure_if_needed()
 
     def _on_review_answered(self, event) -> None:
+        if not self._ensure_current_profile_bound():
+            return
         self.metrics = self.session_manager.record_answer(event)
         self.revlog_metrics_source.note_review_answered(getattr(event, "ease", None))
         self._warn_storage_failure_if_needed()
         self._display_metrics()
+        self._schedule_revlog_refresh()
 
     def _mark_timer_started_if_running(self) -> None:
         if self.timer.mode != MODE_POMODORO or self.timer.paused:
@@ -292,6 +352,10 @@ class PomodoroAddonController:
         self.metrics = self.session_manager.metrics()
         self._display_metrics()
 
+    def _refresh_revlog_metrics_after_answer(self) -> None:
+        self.revlog_metrics_source.invalidate_today_snapshot()
+        self._refresh_metrics()
+
     def _display_metrics(self) -> None:
         self._apply_revlog_metrics()
         self.ui.refresh_metrics(
@@ -300,6 +364,7 @@ class PomodoroAddonController:
             self.cards_metrics,
             self.retention_metrics,
             self.streak_metrics,
+            self.study_time_metrics,
         )
         self._schedule_anki_day_refresh()
 
@@ -314,6 +379,8 @@ class PomodoroAddonController:
             return make_retention_popover(self.retention_metrics)
         if name == "streak":
             return make_streak_popover(self.streak_metrics)
+        if name == "study_time":
+            return make_study_time_popover(self.study_time_metrics)
         return None
 
     def _refresh_metric_popover(self, name: str, popover) -> None:
@@ -331,6 +398,9 @@ class PomodoroAddonController:
             return
         if name == "cards":
             popover.refresh_data(self.cards_metrics)
+            return
+        if name == "study_time":
+            popover.refresh_data(self.study_time_metrics)
             return
         if hasattr(popover, "refresh_data"):
             popover.refresh_data(self.metrics)
@@ -356,11 +426,15 @@ class PomodoroAddonController:
         )
         self.retention_metrics = snapshot.retention
         self.streak_metrics = snapshot.streak
+        self.study_time_metrics = snapshot.study_time
 
     def _schedule_anki_day_refresh(self) -> None:
         seconds = max(1, int(self.revlog_metrics_source.seconds_until_cutoff()))
         delay_ms = (seconds + 2) * 1000
         self._anki_day_refresh_timer.start(delay_ms)
+
+    def _schedule_revlog_refresh(self) -> None:
+        self._revlog_refresh_timer.start(250)
 
     def _on_anki_day_rollover(self) -> None:
         self._refresh_metrics()
@@ -380,11 +454,16 @@ class PomodoroAddonController:
                 return ""
 
     def _save_runtime_state(self) -> None:
+        if not self._profile_active or not self._ensure_current_profile_bound():
+            return
+        self._log_profile_event("save_runtime_state")
         if not self.session_manager.save_audio_state(self.ui.audio_state_snapshot()):
             self._warn_storage_failure_if_needed()
         self._save_timer_state()
 
     def _save_timer_state(self) -> None:
+        if not self._profile_active:
+            return
         if not self.session_manager.save_timer_state(self.timer.runtime_state()):
             self._warn_storage_failure_if_needed()
         else:
@@ -455,6 +534,7 @@ class PomodoroAddonController:
         return True
 
     def _rebuild_ui(self) -> None:
+        self._apply_revlog_metrics()
         self.ui.rebuild(
             self.settings,
             self.metrics,
@@ -462,6 +542,7 @@ class PomodoroAddonController:
             self.cards_metrics,
             self.retention_metrics,
             self.streak_metrics,
+            self.study_time_metrics,
             self.session_manager.audio_state(),
         )
         self._sync_timer_state()
@@ -478,6 +559,58 @@ class PomodoroAddonController:
         error = self.data_store.last_error or analytics_error
         _show_warning_message(tr("storage.save_failed", error=error))
 
+    def _ensure_current_profile_bound(self) -> bool:
+        if getattr(self.mw, "col", None) is None:
+            return False
+        current = self._current_profile_folder()
+        if current and current != self._profile_folder:
+            self.rebind_profile(self.mw)
+        return True
+
+    def _current_profile_folder(self) -> str:
+        try:
+            pm = getattr(self.mw, "pm", None)
+            profile_folder_fn = getattr(pm, "profileFolder", None)
+            if callable(profile_folder_fn):
+                return str(profile_folder_fn() or "")
+        except Exception:
+            pass
+        return ""
+
+    def _current_profile_name(self) -> str:
+        try:
+            pm = getattr(self.mw, "pm", None)
+            for attr in ("name", "profile_name", "profileName"):
+                value = getattr(pm, attr, None)
+                if value:
+                    return str(value)
+        except Exception:
+            pass
+        return ""
+
+    def _log_profile_event(self, event: str) -> None:
+        try:
+            folder = self._current_profile_folder()
+            if folder:
+                log_path = Path(folder) / "pomodoro_qt.log"
+            else:
+                data_path = getattr(getattr(self, "data_store", None), "path", Path(__file__))
+                log_path = Path(data_path).with_name("pomodoro_qt.log")
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+            data_path = getattr(getattr(self, "data_store", None), "path", "")
+            analytics_path = getattr(getattr(self, "analytics_store", None), "path", "")
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    f"{timestamp} controller.{event}: "
+                    f"profile_name={self._current_profile_name()!r}; "
+                    f"profile_folder={folder!r}; "
+                    f"data_store.path={str(data_path)!r}; "
+                    f"analytics_store.path={str(analytics_path)!r}\n"
+                )
+        except Exception:
+            pass
+
     def _warn_config_failure_if_needed(self) -> None:
         if self.config_store.last_error is None:
             self._config_warning_shown = False
@@ -489,6 +622,7 @@ class PomodoroAddonController:
 
 
 _controller: Optional[PomodoroAddonController] = None
+_profile_open_hook_registered = False
 
 
 def setup_addon(addon_package: str) -> None:
@@ -496,6 +630,7 @@ def setup_addon(addon_package: str) -> None:
         from aqt import gui_hooks
     except Exception:
         return
+    global _profile_open_hook_registered
 
     def start_controller(*args) -> None:
         global _controller
@@ -506,8 +641,7 @@ def setup_addon(addon_package: str) -> None:
             if mw is None or getattr(mw, "col", None) is None:
                 return
             if _controller is not None:
-                _controller._refresh_metrics()
-                _controller.update_visibility()
+                _controller.rebind_profile(mw)
                 return
             _controller = PomodoroAddonController(mw, addon_package)
             _controller.setup()
@@ -519,8 +653,9 @@ def setup_addon(addon_package: str) -> None:
             except Exception:
                 raise
 
-    if hasattr(gui_hooks, "profile_did_open"):
+    if not _profile_open_hook_registered and hasattr(gui_hooks, "profile_did_open"):
         gui_hooks.profile_did_open.append(start_controller)
+        _profile_open_hook_registered = True
 
     QTimer.singleShot(0, start_controller)
 

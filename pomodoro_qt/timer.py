@@ -95,6 +95,15 @@ class PomodoroTimer(QObject):
         self._deadline = None
         self.changed.emit(self.state())
 
+    def suspend(self) -> None:
+        """Pause countdown work without resetting the persisted timer state."""
+        self._sync_running_time_left()
+        self.paused = True
+        self._deadline = None
+
+    def shutdown(self) -> None:
+        self._timer.stop()
+
     def start_mode(self, mode: str) -> None:
         self.mode = MODE_BREAK if mode == MODE_BREAK else MODE_POMODORO
         self.total_seconds = self._seconds_for_mode(self.mode)
