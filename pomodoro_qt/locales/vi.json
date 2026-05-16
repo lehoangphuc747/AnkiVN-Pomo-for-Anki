@@ -150,6 +150,8 @@
   "dialog.done_subtitle": "{cards} thẻ - retention {retention}% - +{xp} XP",
   "dialog.break_done_title": "Hoàn thành giờ nghỉ!",
   "dialog.break_done_subtitle": "Sẵn sàng bắt đầu PomodoroVN {minutes} phút?",
+  "dialog.break_minutes_label": "Thời gian nghỉ:",
+  "dialog.pomodoro_minutes_label": "Thời gian Pomodoro:",
   "settings.title": "Cài đặt PomodoroVN",
   "time_dialog.title": "Đổi thời gian",
   "time_dialog.pomodoro_label": "Nhập số phút PomodoroVN:",

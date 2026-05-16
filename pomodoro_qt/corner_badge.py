@@ -178,6 +178,7 @@ class HtmlCornerBadgeWidget(QFrame):
             "mode_pomodoro": tr("mode.pomodoro"),
             "level_short": tr("metric.level_short"),
             "tooltip_pause_resume": tr("tooltip.pause_resume"),
+            "tooltip_edit_time": tr("tooltip.edit_time"),
             "tooltip_stop": tr("tooltip.stop"),
             "tooltip_sound": tr("tooltip.sound"),
             "tooltip_feedback": tr("tooltip.feedback"),

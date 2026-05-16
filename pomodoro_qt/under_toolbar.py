@@ -78,7 +78,7 @@ class UnderToolbarWidget(QFrame):
         metrics_row.setContentsMargins(0, 0, 0, 0)
         self.experience_button = make_toolbar_metric_button(
             self._experience_text(experience_metrics),
-            COLORS["text"],
+            COLORS["yellow"],
             tr("tooltip.experience"),
             650,
         )

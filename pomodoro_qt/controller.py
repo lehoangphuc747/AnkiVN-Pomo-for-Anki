@@ -6,14 +6,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from aqt.qt import QAction, QDialog, QInputDialog, QMessageBox, QTimer
+from aqt.qt import QAction, QDialog, QMessageBox, QTimer
 
 from .analytics_store import PomodoroAnalyticsStore
 from .anki_bridge import AnkiBridge
 from .backup_manager import BackupManager
 from .cards_studied import make_cards_studied_popover
 from .config_store import ConfigStore
-from .dialogs import BreakDoneDialog, CHOICE_END, PomodoroDoneDialog
+from .dialogs import BreakDoneDialog, CHOICE_END, EditTimeDialog, PomodoroDoneDialog
 from .experience import make_experience_popover
 from .experience_metric import ExperienceMetrics, level_state
 from .i18n import set_language, tr
@@ -259,27 +259,18 @@ class PomodoroAddonController:
         self._display_metrics()
 
     def _edit_timer_duration(self) -> None:
-        state = self.timer.state()
-        current_minutes = max(1, round(state.total_seconds / 60))
-        maximum = 60 if state.mode == MODE_BREAK else 180
-        label = tr("time_dialog.break_label") if state.mode == MODE_BREAK else tr("time_dialog.pomodoro_label")
-        minutes, accepted = QInputDialog.getInt(
-            self.mw,
-            tr("time_dialog.title"),
-            label,
-            current_minutes,
-            1,
-            maximum,
-            1,
-        )
-        if not accepted or int(minutes) == current_minutes:
+        dialog = EditTimeDialog(self.mw, self.settings)
+        dialog.setStyleSheet(addon_qss())
+        if not _dialog_accepted(dialog):
+            return
+        new_pomodoro = int(dialog.pomodoro_minutes)
+        new_break = int(dialog.break_minutes)
+        if new_pomodoro == self.settings.pomodoro_minutes and new_break == self.settings.break_minutes:
             return
 
         self._save_runtime_state()
-        if state.mode == MODE_BREAK:
-            self.settings.break_minutes = int(minutes)
-        else:
-            self.settings.pomodoro_minutes = int(minutes)
+        self.settings.pomodoro_minutes = new_pomodoro
+        self.settings.break_minutes = new_break
         if not self.config_store.save(self.settings):
             self._warn_config_failure_if_needed()
         self.timer.apply_settings(self.settings)
@@ -307,6 +298,10 @@ class PomodoroAddonController:
                 self._save_timer_state()
                 self._refresh_metrics()
                 return
+            if dialog.choice == MODE_BREAK and dialog.break_minutes != self.settings.break_minutes:
+                self.settings.break_minutes = int(dialog.break_minutes)
+                self.config_store.save(self.settings)
+                self.timer.apply_settings(self.settings)
             self.timer.start_mode(dialog.choice)
             if dialog.choice == MODE_POMODORO:
                 self._mark_timer_started_if_running()
@@ -321,6 +316,10 @@ class PomodoroAddonController:
                 self._save_timer_state()
                 self._refresh_metrics()
                 return
+            if dialog.pomodoro_minutes != self.settings.pomodoro_minutes:
+                self.settings.pomodoro_minutes = int(dialog.pomodoro_minutes)
+                self.config_store.save(self.settings)
+                self.timer.apply_settings(self.settings)
             self.timer.start_mode(MODE_POMODORO)
             self._mark_timer_started_if_running()
             self._save_timer_state()

@@ -104,7 +104,7 @@ class SidebarWidget(QFrame):
         root.addWidget(line)
 
         self.experience_button = make_sidebar_metric_button(
-            tr("metric.experience"), self._experience_text(experience_metrics), tr("tooltip.experience"), icon_path=GROWTH_ICON_PATH
+            tr("metric.experience"), self._experience_text(experience_metrics), tr("tooltip.experience"), COLORS["yellow"], GROWTH_ICON_PATH
         )
         self.retention_button = make_sidebar_metric_button(
             tr("metric.retention"),

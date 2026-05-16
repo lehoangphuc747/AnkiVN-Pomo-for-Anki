@@ -328,6 +328,9 @@ class UIManager:
         if action == "feedback":
             self._on_open_feedback()
             return
+        if action == "edit_time":
+            self._on_edit_timer_duration()
+            return
         if action in {"session", "experience", "cards", "study_time", "streak", "retention"} and self.corner_widget:
             self.show_metric(action, self.corner_widget)
 

@@ -7,6 +7,7 @@
   --anki-red: #d94b43;
   --anki-red-dark: #c23f38;
   --anki-red-light: #fef6f5;
+  --anki-green: #739e73;
   --anki-pink: #f6908f;
   --anki-yellow: #fbc02d;
   --anki-soft: #f2f1ec;
@@ -103,15 +104,46 @@ input {
 }
 
 .timer-circle {
+  position: relative;
   width: 92px;
   height: 92px;
   padding: 0;
   display: grid;
   place-items: center;
-  border: 3px solid var(--anki-red);
-  border-radius: 50%;
   background: transparent;
   color: var(--anki-red);
+  cursor: pointer;
+  border: 0;
+  border-radius: 50%;
+}
+
+.timer-circle:hover {
+  background: rgba(217, 75, 67, 0.06);
+}
+
+.timer-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.timer-ring-bg {
+  fill: none;
+  stroke: #efece5;
+  stroke-width: 6;
+}
+
+.timer-ring-progress {
+  fill: none;
+  stroke: var(--anki-red);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 289.027;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 320ms cubic-bezier(0.25, 1, 0.5, 1), stroke 240ms ease;
 }
 
 .timer-text {
@@ -136,7 +168,7 @@ input {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -172,19 +204,28 @@ input {
 }
 
 .metric-level {
-  color: var(--anki-text);
-}
-
-.metric-cards {
   color: var(--anki-yellow);
+  grid-column: span 2;
 }
 
 .metric-streak {
   color: var(--anki-red);
+  grid-column: span 2;
+}
+
+.metric-cards {
+  color: var(--anki-yellow);
+  grid-column: span 2;
+}
+
+.metric-study-time {
+  color: var(--anki-green);
+  grid-column: span 3;
 }
 
 .metric-retention {
   color: var(--anki-pink);
+  grid-column: span 3;
 }
 
 .control-icon,
