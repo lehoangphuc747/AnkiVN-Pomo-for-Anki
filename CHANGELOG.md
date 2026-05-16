@@ -4,6 +4,16 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.6] - 2026-05-17
+
+### Tính năng mới
+
+- **Changelog popup** — khi cập nhật phiên bản mới, popup hiện thị danh sách thay đổi theo ngôn ngữ user đang chọn (VI/EN).
+- **Don't show again** — checkbox để tắt popup vĩnh viễn nếu không muốn xem nữa.
+- Trạng thái popup lưu trong `data_store` (`last_changelog_version`, `suppress_changelog_popup`).
+
+---
+
 ## [1.1.5] - 2026-05-16
 
 ### Cải thiện Dark Mode
