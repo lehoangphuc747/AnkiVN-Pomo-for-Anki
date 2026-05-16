@@ -114,14 +114,14 @@ class SidebarWidget(QFrame):
             BRAIN_ICON_PATH,
         )
         self.cards_button = make_sidebar_metric_button(
-            tr("metric.cards_studied"),
+            tr("metric.cards_studied_short"),
             tr("metric.cards_short", count=format_number(cards_metrics.cards)),
             tr("tooltip.cards"),
             COLORS["yellow"],
             BOLT_ICON_PATH,
         )
         self.study_time_button = make_sidebar_metric_button(
-            tr("metric.study_time"),
+            tr("metric.study_time_short"),
             format_study_duration(study_time_metrics.today_seconds),
             tr("tooltip.study_time"),
             COLORS["green"],
