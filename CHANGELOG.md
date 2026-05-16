@@ -4,6 +4,18 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.5] - 2026-05-16
+
+### Cải thiện Dark Mode
+
+- **Settings dialog follow dark mode** — thêm rule `QDialog` background/text vào QSS để dialog không còn nền sáng khi dark mode.
+- **"Pomo" trắng trong dark mode** — chữ "Pomo" của brand "PomoVN" hiển thị màu trắng (`#FFFFFF`), giữ "VN" màu đỏ nhấn mạnh. Áp dụng cho Sidebar, Under Toolbar, Corner Badge.
+- **Background sáng hơn cho icon SVG** — palette dark điều chỉnh: `bg #2A2A2C`, `window #34343A`, `border #4A4A4F` (thay vì `#1E1E1E`/`#252525` quá tối). SVG icon dark navy không còn bị "chìm".
+- **Icon filter cho corner badge** — control icons & audio icons mono dark nhận `filter: brightness(0) invert(1)` chỉ trong dark mode, đảm bảo visible. Icons có màu (star, fire...) không filter.
+- Helper `active_colors()` / `is_dark_active()` cho phép code Python query active palette.
+
+---
+
 ## [1.1.4] - 2026-05-16
 
 ### Tính năng mới
