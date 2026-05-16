@@ -11,6 +11,7 @@ from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
 from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
 from .retention_metric import RetentionMetrics
+from .study_time_metric import StudyTimeMetrics, format_study_duration
 from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import (
@@ -23,8 +24,10 @@ from .ui_components import (
     SYMBOL_LIGHTNING,
     TOMATO_ICON_PATH,
     FIRE_ICON_PATH,
+    STUDY_TIME_ICON_PATH,
     make_audio_mini_button,
     make_button,
+    make_feedback_button,
     make_icon_text_label,
     make_primary_pause_button,
     make_settings_button,
@@ -45,6 +48,7 @@ class SidebarWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         super().__init__()
         self.metrics = metrics
@@ -52,6 +56,7 @@ class SidebarWidget(QFrame):
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self.setProperty("panel", "sidebar")
         self.setFixedWidth(260)
 
@@ -68,9 +73,11 @@ class SidebarWidget(QFrame):
             18,
             7,
         )
+        self.feedback_button = make_feedback_button(COLORS["muted_light"], 16)
         self.settings_button = make_settings_button(COLORS["muted_light"], 16)
         header.addWidget(self.mode_label)
         header.addStretch(1)
+        header.addWidget(self.feedback_button)
         header.addWidget(self.settings_button)
         root.addLayout(header)
         root.addSpacing(12)
@@ -113,26 +120,36 @@ class SidebarWidget(QFrame):
             COLORS["yellow"],
             BOLT_ICON_PATH,
         )
+        self.study_time_button = make_sidebar_metric_button(
+            tr("metric.study_time"),
+            format_study_duration(study_time_metrics.today_seconds),
+            tr("tooltip.study_time"),
+            COLORS["green"],
+            STUDY_TIME_ICON_PATH,
+        )
         self.streak_button = make_sidebar_metric_button(
             tr("metric.streak"), tr("metric.days", count=format_number(streak_metrics.days)), tr("tooltip.streak"), COLORS["red"], FIRE_ICON_PATH
         )
         metrics_layout = QVBoxLayout()
         metrics_layout.setSpacing(0)
         metrics_layout.setContentsMargins(0, 0, 0, 0)
-        for button in [self.experience_button, self.retention_button, self.cards_button, self.streak_button]:
+        for button in [self.experience_button, self.streak_button, self.cards_button, self.study_time_button, self.retention_button]:
             metrics_layout.addWidget(button)
         root.addLayout(metrics_layout)
 
         root.addStretch(1)
-        self.audio_button = make_audio_mini_button(tr("audio.slow_rain"))
+        self.audio_button = make_audio_mini_button(tr("audio.short_rain"))
         root.addWidget(self.audio_button)
 
-    def sync_state(self, state: PomodoroTimerState) -> None:
+    def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.circular.set_state(state)
         set_accent_property(self.mode_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused, primary=True)
         self.stop_button.setVisible(state.started)
+        if study_time_metrics is not None:
+            self.study_time_metrics = study_time_metrics
+            self.study_time_button.set_value(format_study_duration(study_time_metrics.today_seconds))
 
     def refresh_metrics(
         self,
@@ -141,16 +158,19 @@ class SidebarWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         self.metrics = metrics
         self.experience_metrics = experience_metrics
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self.session_button.setText(self._session_text(metrics))
         self.experience_button.set_value(self._experience_text(experience_metrics))
         self.retention_button.set_value(tr("common.percent", value=format_number(retention_metrics.today_retention)))
         self.cards_button.set_value(tr("metric.cards_short", count=format_number(cards_metrics.cards)))
+        self.study_time_button.set_value(format_study_duration(study_time_metrics.today_seconds))
         self.streak_button.set_value(tr("metric.days", count=format_number(streak_metrics.days)))
 
     def metric_buttons(self) -> Iterable[QPushButton]:
@@ -158,6 +178,7 @@ class SidebarWidget(QFrame):
             self.session_button,
             self.experience_button,
             self.cards_button,
+            self.study_time_button,
             self.streak_button,
             self.retention_button,
         ]

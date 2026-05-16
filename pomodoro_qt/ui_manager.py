@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from aqt.qt import QDockWidget, QWidget, Qt
+from aqt.qt import QDockWidget, QWidget, Qt, QDesktopServices, QUrl
 
 from .corner_badge import HtmlCornerBadgeWidget
 from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SessionMetrics
 from .retention_metric import RetentionMetrics
+from .study_time_metric import StudyTimeMetrics
 from .sidebar_panel import SidebarWidget
 from .sound import AudioPopover
 from .streak_metric import StreakMetrics
@@ -23,6 +24,7 @@ LEFT_DOCK = Qt.DockWidgetArea.LeftDockWidgetArea
 NO_DOCK_FEATURES = QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
 UNDER_TOOLBAR_STATES = {"deckBrowser", "overview", "review"}
 VISIBLE_LAYOUT_STATES = {"deckBrowser", "overview", "review"}
+FEEDBACK_URL = "https://forms.gle/zb81d3JCt2HFb2AX8"
 
 
 class UIManager:
@@ -64,11 +66,18 @@ class UIManager:
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
         audio_state: dict,
     ) -> None:
-        self.under_widget = UnderToolbarWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
-        self.sidebar_widget = SidebarWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
-        self.corner_widget = HtmlCornerBadgeWidget(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
+        self.under_widget = UnderToolbarWidget(
+            metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics, study_time_metrics
+        )
+        self.sidebar_widget = SidebarWidget(
+            metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics, study_time_metrics
+        )
+        self.corner_widget = HtmlCornerBadgeWidget(
+            metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics, study_time_metrics
+        )
         self.audio_popover = AudioPopover()
         self.audio_popover.restore_state(audio_state)
         self.metric_popovers = self._make_metric_popovers()
@@ -99,10 +108,20 @@ class UIManager:
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
         audio_state: dict,
     ) -> None:
         self.dispose()
-        self.build(settings, metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics, audio_state)
+        self.build(
+            settings,
+            metrics,
+            experience_metrics,
+            cards_metrics,
+            retention_metrics,
+            streak_metrics,
+            study_time_metrics,
+            audio_state,
+        )
 
     def dispose(self) -> None:
         self.hide_floating_popovers()
@@ -165,10 +184,10 @@ class UIManager:
 
         self.hide_floating_popovers()
 
-    def sync_timer_state(self, state) -> None:
+    def sync_timer_state(self, state, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         for widget in [self.under_widget, self.sidebar_widget, self.corner_widget]:
             if widget:
-                widget.sync_state(state)
+                widget.sync_state(state, study_time_metrics)
 
     def refresh_metrics(
         self,
@@ -177,10 +196,18 @@ class UIManager:
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         for widget in [self.under_widget, self.sidebar_widget, self.corner_widget]:
             if widget:
-                widget.refresh_metrics(metrics, experience_metrics, cards_metrics, retention_metrics, streak_metrics)
+                widget.refresh_metrics(
+                    metrics,
+                    experience_metrics,
+                    cards_metrics,
+                    retention_metrics,
+                    streak_metrics,
+                    study_time_metrics,
+                )
         self.refresh_visible_metric_popover()
 
     def audio_state_snapshot(self) -> dict:
@@ -251,6 +278,7 @@ class UIManager:
         widget.pause_button.clicked.connect(self._on_toggle_timer_pause)
         widget.stop_button.clicked.connect(self._on_stop_timer)
         widget.settings_button.clicked.connect(self._on_open_settings)
+        widget.feedback_button.clicked.connect(self._on_open_feedback)
 
         if floating_audio:
             widget.audio_button.clicked.connect(lambda _checked=False, button=widget.audio_button: self._toggle_audio(button))
@@ -258,6 +286,10 @@ class UIManager:
         widget.session_button.clicked.connect(lambda _checked=False, button=widget.session_button: self.show_metric("session", button))
         widget.experience_button.clicked.connect(lambda _checked=False, button=widget.experience_button: self.show_metric("experience", button))
         widget.cards_button.clicked.connect(lambda _checked=False, button=widget.cards_button: self.show_metric("cards", button))
+        if hasattr(widget, "study_time_button"):
+            widget.study_time_button.clicked.connect(
+                lambda _checked=False, button=widget.study_time_button: self.show_metric("study_time", button)
+            )
         widget.streak_button.clicked.connect(lambda _checked=False, button=widget.streak_button: self.show_metric("streak", button))
         if hasattr(widget, "retention_button"):
             widget.retention_button.clicked.connect(
@@ -266,7 +298,7 @@ class UIManager:
 
     def _make_metric_popovers(self) -> dict:
         popovers = {}
-        for name in ["session", "experience", "cards", "retention", "streak"]:
+        for name in ["session", "experience", "cards", "study_time", "retention", "streak"]:
             popover = self._make_metric_popover(name)
             if popover is not None:
                 popovers[name] = popover
@@ -281,6 +313,9 @@ class UIManager:
             self.audio_popover.toggle_at(anchor)
 
     def _handle_corner_action(self, action: str) -> None:
+        if action == "audio" and self.corner_widget:
+            self._toggle_audio(self.corner_widget)
+            return
         if action == "pause":
             self._on_toggle_timer_pause()
             return
@@ -290,8 +325,14 @@ class UIManager:
         if action == "settings":
             self._on_open_settings()
             return
-        if action in {"session", "experience", "cards", "streak", "retention"} and self.corner_widget:
+        if action == "feedback":
+            self._on_open_feedback()
+            return
+        if action in {"session", "experience", "cards", "study_time", "streak", "retention"} and self.corner_widget:
             self.show_metric(action, self.corner_widget)
+
+    def _on_open_feedback(self) -> None:
+        QDesktopServices.openUrl(QUrl(FEEDBACK_URL))
 
     def _finish_visibility_update(self, shown_layout: bool) -> None:
         if not shown_layout:

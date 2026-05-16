@@ -33,6 +33,10 @@
         <span id="cards-count">0</span>
         <img src="{{bolt_icon_src}}" alt="" class="metric-icon" />
       </button>
+      <button id="study-time-button" data-action="study_time" type="button" class="metric-chip metric-study-time" title="{{tooltip_study_time}}">
+        <span id="study-time-text">0m</span>
+        <img src="{{time_icon_src}}" alt="" class="metric-icon" />
+      </button>
       <button id="streak-button" data-action="streak" type="button" class="metric-chip metric-streak">
         <span id="streak-text">0</span>
         <img src="{{fire_icon_src}}" alt="" class="metric-icon" />
@@ -48,6 +52,7 @@
       <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden><img src="{{stop_icon_src}}" alt="" class="control-icon" /></button>
       <button id="session-button" data-action="session" type="button" title="{{tooltip_session_history}}"><img src="{{history_icon_src}}" alt="" class="control-icon" /></button>
       <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}"><img src="{{soundcloud_icon_src}}" alt="" class="control-icon" /></button>
+      <button data-action="feedback" type="button" title="{{tooltip_feedback}}"><img src="{{feedback_icon_src}}" alt="" class="control-icon" /></button>
       <button data-action="settings" type="button" title="{{tooltip_settings}}"><img src="{{settings_icon_src}}" alt="" class="control-icon" /></button>
     </div>
 

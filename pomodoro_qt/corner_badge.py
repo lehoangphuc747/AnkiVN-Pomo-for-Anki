@@ -15,6 +15,7 @@ from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
 from .models import PomodoroTimerState, SessionMetrics
 from .retention_metric import RetentionMetrics
+from .study_time_metric import StudyTimeMetrics, format_study_duration
 from .streak_metric import StreakMetrics
 
 
@@ -37,6 +38,7 @@ class HtmlCornerBadgeWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         super().__init__()
         self.metrics = metrics
@@ -44,6 +46,7 @@ class HtmlCornerBadgeWidget(QFrame):
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self._saved_position: Optional[QPoint] = None
         self._drag_origin: Optional[QPoint] = None
         self._ready = False
@@ -52,7 +55,8 @@ class HtmlCornerBadgeWidget(QFrame):
 
         self.setObjectName("HtmlCornerBadgeWidget")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(204, 312)
+        self._collapsed_height = 344
+        self.setFixedSize(204, self._collapsed_height)
 
         self.web = self._make_webview()
         self.web.setObjectName("PomodoroCornerBadgeWeb")
@@ -75,8 +79,10 @@ class HtmlCornerBadgeWidget(QFrame):
             return
         self._saved_position = QPoint(left, top)
 
-    def sync_state(self, state: PomodoroTimerState) -> None:
+    def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self._last_state = state
+        if study_time_metrics is not None:
+            self.study_time_metrics = study_time_metrics
         self._send_state()
 
     def refresh_metrics(
@@ -86,12 +92,14 @@ class HtmlCornerBadgeWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         self.metrics = metrics
         self.experience_metrics = experience_metrics
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self._send_state()
 
     def showEvent(self, event) -> None:  # noqa: N802 - Qt override
@@ -105,7 +113,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
     def resize_for_audio(self, expanded: bool) -> None:
         self._expanded_audio = expanded
-        self.setFixedSize(204, 492 if expanded else 312)
+        self.setFixedSize(204, self._collapsed_height + (180 if expanded else 0))
         self._move_clamped(self.pos())
 
     def _make_webview(self):
@@ -153,25 +161,29 @@ class HtmlCornerBadgeWidget(QFrame):
         next_icon_src = _svg_data_uri(ICON_DIR / "next-998-svgrepo-com.svg")
         loop_icon_src = _svg_data_uri(ICON_DIR / "loop-svgrepo-com.svg")
         settings_icon_src = _svg_data_uri(ICON_DIR / "settings-cog-options-config-configure-gear-engineering-svgrepo-com.svg")
+        feedback_icon_src = _svg_data_uri(ICON_DIR / "question-svgrepo-com.svg")
         soundcloud_icon_src = _svg_data_uri(ICON_DIR / "soundcloud-sound-cloud-svgrepo-com.svg")
         bolt_icon_src = _svg_data_uri(ICON_DIR / "bolt-svgrepo-com.svg")
         growth_icon_src = _svg_data_uri(ICON_DIR / "idea-svgrepo-com.svg")
         fire_icon_src = _svg_data_uri(ICON_DIR / "fire-svgrepo-com.svg")
         brain_icon_src = _svg_data_uri(ICON_DIR / "brain-svgrepo-com.svg")
+        time_icon_src = _svg_data_uri(ICON_DIR / "time-clock-timer-appointment-svgrepo-com.svg")
         history_icon_src = _svg_data_uri(ICON_DIR / "history.svg")
         values = {
             "html_lang": current_language(),
             "corner_aria": tr("corner.aria"),
             "tooltip_drag_corner": tr("tooltip.drag_corner"),
             "tooltip_session_history": tr("tooltip.session_history"),
+            "tooltip_study_time": tr("tooltip.study_time"),
             "mode_pomodoro": tr("mode.pomodoro"),
             "level_short": tr("metric.level_short"),
             "tooltip_pause_resume": tr("tooltip.pause_resume"),
             "tooltip_stop": tr("tooltip.stop"),
             "tooltip_sound": tr("tooltip.sound"),
+            "tooltip_feedback": tr("tooltip.feedback"),
             "tooltip_settings": tr("tooltip.settings"),
-            "audio_title_lofi": tr("audio.slow_rain"),
-            "audio_source_chillhop": tr("audio.source_unfa"),
+            "audio_title_lofi": tr("audio.short_rain"),
+            "audio_source_chillhop": tr("audio.source_dmk67"),
             "audio_youtube_placeholder": tr("audio.youtube_placeholder"),
             "action_load": tr("action.load"),
             "action_shuffle": tr("action.shuffle"),
@@ -191,11 +203,13 @@ class HtmlCornerBadgeWidget(QFrame):
             "next_icon_src": next_icon_src,
             "loop_icon_src": loop_icon_src,
             "settings_icon_src": settings_icon_src,
+            "feedback_icon_src": feedback_icon_src,
             "soundcloud_icon_src": soundcloud_icon_src,
             "bolt_icon_src": bolt_icon_src,
             "growth_icon_src": growth_icon_src,
             "fire_icon_src": fire_icon_src,
             "brain_icon_src": brain_icon_src,
+            "time_icon_src": time_icon_src,
             "history_icon_src": history_icon_src,
         }
         for key, value in values.items():
@@ -215,6 +229,7 @@ class HtmlCornerBadgeWidget(QFrame):
         cards_metrics = self.cards_metrics
         retention_metrics = self.retention_metrics
         streak_metrics = self.streak_metrics
+        study_time_metrics = self.study_time_metrics
         mode_label = tr("mode.break_time") if state.mode == "break" else tr("mode.pomodoro")
         payload = {
             "mode": state.mode,
@@ -243,12 +258,15 @@ class HtmlCornerBadgeWidget(QFrame):
                 "cards": cards_metrics.cards,
                 "retention": retention_metrics.today_retention,
                 "streakDays": streak_metrics.days,
+                "studyTimeToday": study_time_metrics.today_seconds,
+                "studyTimeAllTime": study_time_metrics.all_time_seconds,
             },
             "metricsText": {
                 "level": format_number(experience_metrics.level),
                 "cards": format_number(cards_metrics.cards),
                 "retention": tr("common.percent", value=format_number(retention_metrics.today_retention)),
                 "streakDays": format_number(streak_metrics.days),
+                "studyTime": format_study_duration(study_time_metrics.today_seconds),
             },
         }
         self._eval_js(f"window.PomodoroUI && window.PomodoroUI.update({json.dumps(payload)});")

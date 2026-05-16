@@ -11,6 +11,7 @@ from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
 from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
 from .retention_metric import RetentionMetrics
+from .study_time_metric import StudyTimeMetrics, format_study_duration
 from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import (
@@ -20,8 +21,10 @@ from .ui_components import (
     FIRE_ICON_PATH,
     GROWTH_ICON_PATH,
     HISTORY_ICON_PATH,
+    STUDY_TIME_ICON_PATH,
     TOMATO_ICON_PATH,
     make_clickable_label,
+    make_feedback_button,
     make_icon_text_label,
     make_pause_button,
     make_settings_button,
@@ -43,6 +46,7 @@ class UnderToolbarWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         super().__init__()
         self.metrics = metrics
@@ -50,6 +54,7 @@ class UnderToolbarWidget(QFrame):
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self.setProperty("panel", "under")
         self.setFixedHeight(64)
 
@@ -92,12 +97,17 @@ class UnderToolbarWidget(QFrame):
         )
         self.cards_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         set_button_icon(self.cards_button, BOLT_ICON_PATH, 17)
+        self.study_time_button = make_toolbar_metric_button(
+            self._study_time_text(study_time_metrics), "#8a8aff", tr("tooltip.study_time"), 650
+        )
+        self.study_time_button.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        set_button_icon(self.study_time_button, STUDY_TIME_ICON_PATH, 17)
         self.retention_button = make_toolbar_metric_button(
             tr("common.percent", value=format_number(retention_metrics.today_retention)), COLORS["pink"], tr("tooltip.retention"), 650
         )
         set_button_icon(self.retention_button, BRAIN_ICON_PATH, 17)
 
-        for button in [self.experience_button, self.streak_button, self.cards_button, self.retention_button]:
+        for button in [self.experience_button, self.streak_button, self.cards_button, self.study_time_button, self.retention_button]:
             metrics_row.addWidget(button)
 
         left.addWidget(self.mode_label)
@@ -155,11 +165,12 @@ class UnderToolbarWidget(QFrame):
             """
         )
         set_button_icon(self.session_button, HISTORY_ICON_PATH, 17)
+        self.feedback_button = make_feedback_button(COLORS["muted"], 16)
         self.settings_button = make_settings_button(COLORS["muted"], 16)
 
         for button in [self.pause_button, self.stop_button]:
             timer_controls_row.addWidget(button)
-        for button in [self.audio_button, self.session_button, self.settings_button]:
+        for button in [self.audio_button, self.session_button, self.feedback_button, self.settings_button]:
             utility_controls_row.addWidget(button)
 
         right.addStretch(1)
@@ -181,7 +192,7 @@ class UnderToolbarWidget(QFrame):
         root.addWidget(center_box, 0)
         root.addWidget(right_box, 1)
 
-    def sync_state(self, state: PomodoroTimerState) -> None:
+    def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.timer_label.setText(state.time_text)
         self.progress.setValue(int(state.progress * 1000))
@@ -190,6 +201,9 @@ class UnderToolbarWidget(QFrame):
         set_accent_property(self.timer_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused)
         self.stop_button.setVisible(state.started)
+        if study_time_metrics is not None:
+            self.study_time_metrics = study_time_metrics
+            self.study_time_button.setText(self._study_time_text(study_time_metrics))
 
     def refresh_metrics(
         self,
@@ -198,23 +212,27 @@ class UnderToolbarWidget(QFrame):
         cards_metrics: CardsStudiedMetrics,
         retention_metrics: RetentionMetrics,
         streak_metrics: StreakMetrics,
+        study_time_metrics: StudyTimeMetrics,
     ) -> None:
         self.metrics = metrics
         self.experience_metrics = experience_metrics
         self.cards_metrics = cards_metrics
         self.retention_metrics = retention_metrics
         self.streak_metrics = streak_metrics
+        self.study_time_metrics = study_time_metrics
         self.session_button.setText("")
         self.experience_button.setText(self._experience_text(experience_metrics))
         self.streak_button.setText(self._streak_text(streak_metrics))
         self.retention_button.setText(tr("common.percent", value=format_number(retention_metrics.today_retention)))
         self.cards_button.setText(self._cards_text(cards_metrics))
+        self.study_time_button.setText(self._study_time_text(study_time_metrics))
 
     def metric_buttons(self) -> Iterable[QPushButton]:
         return [
             self.experience_button,
             self.streak_button,
             self.cards_button,
+            self.study_time_button,
             self.retention_button,
             self.session_button,
         ]
@@ -227,6 +245,9 @@ class UnderToolbarWidget(QFrame):
 
     def _cards_text(self, metrics: CardsStudiedMetrics) -> str:
         return format_number(max(0, metrics.cards))
+
+    def _study_time_text(self, metrics: StudyTimeMetrics) -> str:
+        return format_study_duration(metrics.today_seconds)
 
     def _set_progress_accent(self, color: str) -> None:
         self.progress.setStyleSheet(

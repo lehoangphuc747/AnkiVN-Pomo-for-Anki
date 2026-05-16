@@ -28,6 +28,7 @@ GROWTH_ICON_PATH = ICON_DIR / "idea-svgrepo-com.svg"
 FIRE_ICON_PATH = ICON_DIR / "fire-svgrepo-com.svg"
 VIETNAM_ICON_PATH = ICON_DIR / "flag-for-vietnam-svgrepo-com.svg"
 BRAIN_ICON_PATH = ICON_DIR / "brain-svgrepo-com.svg"
+STUDY_TIME_ICON_PATH = ICON_DIR / "time-clock-timer-appointment-svgrepo-com.svg"
 HISTORY_ICON_PATH = ICON_DIR / "history.svg"
 PLAY_ICON_PATH = ICON_DIR / "flaticon_10264043.svg"
 PAUSE_ICON_PATH = ICON_DIR / "pause-svgrepo-com.svg"
@@ -38,6 +39,7 @@ PREVIOUS_ICON_PATH = ICON_DIR / "previous-999-svgrepo-com.svg"
 NEXT_ICON_PATH = ICON_DIR / "next-998-svgrepo-com.svg"
 LOOP_ICON_PATH = ICON_DIR / "loop-svgrepo-com.svg"
 SETTINGS_ICON_PATH = ICON_DIR / "settings-cog-options-config-configure-gear-engineering-svgrepo-com.svg"
+FEEDBACK_ICON_PATH = ICON_DIR / "question-svgrepo-com.svg"
 RED_CIRCLE_ICON_PATH = ICON_DIR / "red-circle-svgrepo-com.svg"
 BLACK_CIRCLE_ICON_PATH = ICON_DIR / "black-circle-svgrepo-com.svg"
 
@@ -131,6 +133,13 @@ def make_sound_button(color: str = COLORS["muted"], font_size: int = 17) -> QPus
     button = make_toolbar_icon_button("", tr("tooltip.sound"), color, font_size)
     button.setIcon(QIcon(str(SOUNDCLOUD_ICON_PATH)))
     button.setIconSize(QSize(21, 21))
+    return button
+
+
+def make_feedback_button(color: str = COLORS["muted_light"], font_size: int = 16) -> QPushButton:
+    button = make_toolbar_icon_button("", tr("tooltip.feedback"), color, font_size)
+    button.setIcon(QIcon(str(FEEDBACK_ICON_PATH)))
+    button.setIconSize(QSize(20, 20))
     return button
 
 
