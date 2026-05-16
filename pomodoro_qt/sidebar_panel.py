@@ -215,4 +215,7 @@ class SidebarWidget(QFrame):
         return f"{tr('metric.level_short')} {format_number(max(0, metrics.level))}"
 
     def _brand_text(self) -> str:
-        return f"<span style='color:{COLORS['text']}'>Pomo</span><span style='color:{COLORS['red']}'>VN</span>"
+        from .style import active_colors, is_dark_active
+        c = active_colors()
+        first = "#FFFFFF" if is_dark_active() else c["text"]
+        return f"<span style='color:{first}'>Pomo</span><span style='color:{c['red']}'>VN</span>"

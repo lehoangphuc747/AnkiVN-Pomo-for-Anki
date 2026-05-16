@@ -11,6 +11,25 @@
   --anki-pink: #f6908f;
   --anki-yellow: #fbc02d;
   --anki-soft: #f2f1ec;
+  --anki-icon-filter: none;
+  --anki-brand-first: var(--anki-text);
+}
+
+[data-theme="dark"] {
+  --anki-window: #34343a;
+  --anki-border: #4a4a4f;
+  --anki-text: #f2f2f2;
+  --anki-muted: #b5b3ad;
+  --anki-muted-light: #8e8c86;
+  --anki-red: #f28278;
+  --anki-red-dark: #ef5350;
+  --anki-red-light: #5a2e2a;
+  --anki-green: #9ccc9c;
+  --anki-pink: #f8a8a8;
+  --anki-yellow: #ffd54f;
+  --anki-soft: #3f3f44;
+  --anki-icon-filter: brightness(0) invert(1);
+  --anki-brand-first: #ffffff;
 }
 
 * {
@@ -78,11 +97,15 @@ input {
 }
 
 .brand-word {
-  color: var(--anki-text);
+  color: var(--anki-brand-first);
   font-size: 15px;
   font-weight: 750;
   line-height: 1;
   white-space: nowrap;
+}
+
+.brand-word span:first-child {
+  color: var(--anki-brand-first);
 }
 
 .brand-word span:last-child {
@@ -236,6 +259,11 @@ input {
   flex: 0 0 auto;
   display: inline-block;
   vertical-align: middle;
+}
+
+[data-theme="dark"] .control-icon,
+[data-theme="dark"] .audio-control-icon {
+  filter: var(--anki-icon-filter);
 }
 
 .metric-icon {

@@ -21,20 +21,20 @@ COLORS = {
 }
 
 COLORS_DARK = {
-    "bg": "#1E1E1E",
-    "window": "#252525",
-    "border": "#3A3A3A",
-    "text": "#E0E0E0",
-    "muted": "#9E9E9E",
-    "muted_light": "#757575",
-    "red": "#E57373",
+    "bg": "#2A2A2C",
+    "window": "#34343A",
+    "border": "#4A4A4F",
+    "text": "#F2F2F2",
+    "muted": "#B5B3AD",
+    "muted_light": "#8E8C86",
+    "red": "#F28278",
     "red_dark": "#EF5350",
-    "red_light": "#3D2222",
-    "green": "#81C784",
-    "pink": "#F48FB1",
+    "red_light": "#5A2E2A",
+    "green": "#9CCC9C",
+    "pink": "#F8A8A8",
     "yellow": "#FFD54F",
-    "badge": "#2C2C2C",
-    "soft": "#2E2E2E",
+    "badge": "#3A3A3F",
+    "soft": "#3F3F44",
 }
 
 
@@ -62,13 +62,37 @@ def resolve_colors(theme: str = "system") -> dict:
     return COLORS_DARK if _is_system_dark() else COLORS
 
 
+_ACTIVE_THEME = "system"
+
+
+def set_active_theme(theme: str) -> None:
+    """Track the currently applied theme so palette helpers stay in sync."""
+    global _ACTIVE_THEME
+    _ACTIVE_THEME = theme if theme in ("system", "light", "dark") else "system"
+
+
+def active_colors() -> dict:
+    """Return the colors palette for the currently applied theme."""
+    return resolve_colors(_ACTIVE_THEME)
+
+
+def is_dark_active() -> bool:
+    """Return True when the active theme resolves to the dark palette."""
+    return active_colors() is COLORS_DARK
+
+
 def addon_qss(theme: str = "system") -> str:
     c = resolve_colors(theme)
+    set_active_theme(theme)
     return f"""
     QWidget {{
         color: {c["text"]};
         font-family: "Segoe UI", "Arial";
         font-size: 12px;
+    }}
+    QDialog {{
+        background: {c["window"]};
+        color: {c["text"]};
     }}
     QFrame[panel="root"] {{
         background: {c["window"]};

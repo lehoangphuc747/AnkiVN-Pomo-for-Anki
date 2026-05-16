@@ -152,6 +152,8 @@ class HtmlCornerBadgeWidget(QFrame):
         return html[start + len("<body>") : end]
 
     def _render_template(self, template: str) -> str:
+        from .style import _ACTIVE_THEME, is_dark_active
+        theme_name = "dark" if is_dark_active() else "light"
         tomato_icon_src = _svg_data_uri(ICON_DIR / "tomato-1-svgrepo-com.svg")
         play_icon_src = _svg_data_uri(ICON_DIR / "flaticon_10264043.svg")
         pause_icon_src = _svg_data_uri(ICON_DIR / "pause-svgrepo-com.svg")
@@ -171,6 +173,7 @@ class HtmlCornerBadgeWidget(QFrame):
         history_icon_src = _svg_data_uri(ICON_DIR / "history.svg")
         values = {
             "html_lang": current_language(),
+            "theme_name": theme_name,
             "corner_aria": tr("corner.aria"),
             "tooltip_drag_corner": tr("tooltip.drag_corner"),
             "tooltip_session_history": tr("tooltip.session_history"),
