@@ -22,6 +22,8 @@ def default_state() -> dict:
         "total_xp": 0,
         "session_index": 1,
         "audio_state": {},
+        "last_changelog_version": "",
+        "suppress_changelog_popup": False,
     }
 
 

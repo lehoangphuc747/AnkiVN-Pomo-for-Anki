@@ -12,6 +12,8 @@ from .analytics_store import PomodoroAnalyticsStore
 from .anki_bridge import AnkiBridge
 from .backup_manager import BackupManager
 from .cards_studied import make_cards_studied_popover
+from .changelog import CURRENT_VERSION, has_unseen
+from .changelog_dialog import ChangelogDialog
 from .config_store import ConfigStore
 from .dialogs import BreakDoneDialog, CHOICE_END, EditTimeDialog, PomodoroDoneDialog
 from .experience import make_experience_popover
@@ -110,6 +112,7 @@ class PomodoroAddonController:
         self.anki_bridge.install()
         self._schedule_anki_day_refresh()
         QTimer.singleShot(0, self.update_visibility)
+        QTimer.singleShot(800, self._maybe_show_changelog)
 
     def rebind_profile(self, mw=None) -> None:
         """Rebuild profile-local state after Anki opens or switches profile."""
@@ -158,6 +161,38 @@ class PomodoroAddonController:
 
     def update_visibility(self) -> None:
         self.ui.update_visibility(self.settings)
+
+    def _maybe_show_changelog(self) -> None:
+        try:
+            state = self.data_store.load()
+        except Exception:
+            return
+        if not isinstance(state, dict):
+            return
+        if bool(state.get("suppress_changelog_popup", False)):
+            return
+        last_seen = str(state.get("last_changelog_version", "") or "")
+        if last_seen == CURRENT_VERSION:
+            return
+        if not has_unseen(last_seen):
+            self._record_changelog_seen(state, suppress=False)
+            return
+        try:
+            dialog = ChangelogDialog(self.mw, last_seen)
+            dialog.setStyleSheet(addon_qss(self.settings.theme))
+            dialog.exec()
+            self._record_changelog_seen(state, suppress=dialog.dont_show_again)
+        except Exception:
+            return
+
+    def _record_changelog_seen(self, state: dict, suppress: bool) -> None:
+        state = dict(state) if isinstance(state, dict) else default_state()
+        state["last_changelog_version"] = CURRENT_VERSION
+        state["suppress_changelog_popup"] = bool(suppress)
+        try:
+            self.data_store.save(state)
+        except Exception:
+            pass
 
     def open_settings(self) -> None:
         dialog = SettingsDialog(self.mw, self.settings)
