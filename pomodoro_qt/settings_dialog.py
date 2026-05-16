@@ -6,7 +6,7 @@ from aqt.qt import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
 
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, PomodoroSettings
-from .ui_components import VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
+from .ui_components import PillSwitcher, VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
 
 class SettingsDialog(QDialog):
@@ -27,13 +27,11 @@ class SettingsDialog(QDialog):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        self.layout_combo = QComboBox()
-        self.layout_combo.addItem(tr("layout.under"), LAYOUT_UNDER)
-        self.layout_combo.addItem(tr("layout.sidebar"), LAYOUT_SIDEBAR)
-        self.layout_combo.addItem(tr("layout.corner"), LAYOUT_CORNER)
-        index = self.layout_combo.findData(settings.layout)
-        if index >= 0:
-            self.layout_combo.setCurrentIndex(index)
+        self.layout_switcher = PillSwitcher(self)
+        self.layout_switcher.add_option(tr("layout.under"), LAYOUT_UNDER)
+        self.layout_switcher.add_option(tr("layout.sidebar"), LAYOUT_SIDEBAR)
+        self.layout_switcher.add_option(tr("layout.corner"), LAYOUT_CORNER)
+        self.layout_switcher.set_current_value(settings.layout)
 
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
@@ -62,7 +60,7 @@ class SettingsDialog(QDialog):
                 self.language_combo.setCurrentIndex(fallback_index)
 
         for label, widget in [
-            (tr("settings.layout"), self.layout_combo),
+            (tr("settings.layout"), self.layout_switcher),
             (tr("settings.pomodoro_time"), self.pomodoro_spin),
             (tr("settings.break_time"), self.break_spin),
             (tr("settings.language"), self.language_combo),
@@ -130,7 +128,7 @@ class SettingsDialog(QDialog):
 
     def to_settings(self, previous: PomodoroSettings) -> PomodoroSettings:
         return PomodoroSettings(
-            layout=str(self.layout_combo.currentData()),
+            layout=str(self.layout_switcher.current_value() or previous.layout),
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),

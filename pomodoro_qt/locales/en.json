@@ -154,7 +154,7 @@
   "time_dialog.title": "Edit time",
   "time_dialog.pomodoro_label": "Enter PomodoroVN minutes:",
   "time_dialog.break_label": "Enter break minutes:",
-  "settings.layout": "Status style",
+  "settings.layout": "Style",
   "settings.pomodoro_time": "PomodoroVN time",
   "settings.break_time": "Break time",
   "settings.auto_start_break": "Auto start break",

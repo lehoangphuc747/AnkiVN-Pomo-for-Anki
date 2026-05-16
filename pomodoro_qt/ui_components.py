@@ -6,7 +6,7 @@ import base64
 from pathlib import Path
 from typing import Optional
 
-from aqt.qt import QColor, QFrame, QHBoxLayout, QIcon, QLabel, QPainter, QPen, QPushButton, QSize, QVBoxLayout, QWidget, Qt, pyqtSignal
+from aqt.qt import QColor, QEasingCurve, QFrame, QHBoxLayout, QIcon, QLabel, QPainter, QPen, QPropertyAnimation, QPushButton, QRect, QSize, QVBoxLayout, QWidget, Qt, pyqtProperty, pyqtSignal
 
 from .i18n import tr
 from .models import MODE_BREAK, PomodoroTimerState, SessionMetrics
@@ -531,3 +531,153 @@ class CircularProgress(QFrame):
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(self.rect().adjusted(0, 10, 0, -8), ALIGN_CENTER, self._text)
+
+
+class PillSwitcher(QWidget):
+    """Animated pill-style segmented control with a sliding glider."""
+
+    selectionChanged = pyqtSignal(object)  # emits selected value (data)
+
+    PADDING = 4
+    BUTTON_PADDING_H = 18
+    BUTTON_HEIGHT = 28
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._options: list[tuple[str, object]] = []  # (label, value)
+        self._buttons: list[QPushButton] = []
+        self._current_index = 0
+        self._glider_geom = QRect(0, 0, 0, 0)
+        self._animation = QPropertyAnimation(self, b"gliderGeometry", self)
+        self._animation.setDuration(280)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(self.PADDING, self.PADDING, self.PADDING, self.PADDING)
+        self._layout.setSpacing(0)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setObjectName("pillSwitcher")
+        self.setStyleSheet(self._container_style())
+
+    def _container_style(self) -> str:
+        return f"""
+        QWidget#pillSwitcher {{
+            background: {COLORS['soft']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 999px;
+        }}
+        QPushButton[role="pillTab"] {{
+            background: transparent;
+            border: 0;
+            border-radius: 999px;
+            color: {COLORS['muted']};
+            font-size: 12px;
+            font-weight: 600;
+            padding: 0 {self.BUTTON_PADDING_H}px;
+        }}
+        QPushButton[role="pillTab"][active="true"] {{
+            color: {COLORS['text']};
+        }}
+        QPushButton[role="pillTab"]:hover:!pressed {{
+            color: {COLORS['text']};
+        }}
+        """
+
+    def add_option(self, label: str, value: object) -> None:
+        button = QPushButton(label, self)
+        button.setProperty("role", "pillTab")
+        button.setProperty("active", False)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setMinimumHeight(self.BUTTON_HEIGHT)
+        button.clicked.connect(lambda _checked=False, b=button: self._on_button_clicked(b))
+        self._buttons.append(button)
+        self._options.append((label, value))
+        self._layout.addWidget(button)
+        if len(self._buttons) == 1:
+            self._set_active_index(0, animate=False)
+
+    def set_options(self, options: list[tuple[str, object]]) -> None:
+        for button in self._buttons:
+            self._layout.removeWidget(button)
+            button.deleteLater()
+        self._buttons.clear()
+        self._options.clear()
+        for label, value in options:
+            self.add_option(label, value)
+
+    def current_value(self) -> object:
+        if not self._options:
+            return None
+        return self._options[self._current_index][1]
+
+    def set_current_value(self, value: object) -> None:
+        for index, (_, opt_value) in enumerate(self._options):
+            if opt_value == value:
+                self._set_active_index(index, animate=False)
+                return
+
+    def _on_button_clicked(self, button: QPushButton) -> None:
+        try:
+            index = self._buttons.index(button)
+        except ValueError:
+            return
+        if index == self._current_index:
+            return
+        self._set_active_index(index, animate=True)
+        self.selectionChanged.emit(self._options[index][1])
+
+    def _set_active_index(self, index: int, animate: bool) -> None:
+        self._current_index = index
+        for i, button in enumerate(self._buttons):
+            active = i == index
+            button.setProperty("active", active)
+            button.style().unpolish(button)
+            button.style().polish(button)
+        target_geom = self._target_glider_geom(index)
+        if animate and self._glider_geom.width() > 0:
+            self._animation.stop()
+            self._animation.setStartValue(self._glider_geom)
+            self._animation.setEndValue(target_geom)
+            self._animation.start()
+        else:
+            self._set_glider_geometry(target_geom)
+
+    def _target_glider_geom(self, index: int) -> QRect:
+        if index < 0 or index >= len(self._buttons):
+            return QRect(0, 0, 0, 0)
+        button = self._buttons[index]
+        geom = button.geometry()
+        return QRect(geom.x(), geom.y(), geom.width(), geom.height())
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        super().resizeEvent(event)
+        if self._buttons:
+            self._glider_geom = self._target_glider_geom(self._current_index)
+            self.update()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt override
+        super().showEvent(event)
+        if self._buttons:
+            self._glider_geom = self._target_glider_geom(self._current_index)
+            self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
+        super().paintEvent(event)
+        if self._glider_geom.width() <= 0:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#FFFFFF"))
+        radius = self._glider_geom.height() / 2
+        painter.drawRoundedRect(self._glider_geom, radius, radius)
+
+    def _get_glider_geometry(self) -> QRect:
+        return self._glider_geom
+
+    def _set_glider_geometry(self, value: QRect) -> None:
+        self._glider_geom = value
+        self.update()
+
+    gliderGeometry = pyqtProperty(QRect, _get_glider_geometry, _set_glider_geometry)
