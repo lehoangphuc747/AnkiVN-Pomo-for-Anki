@@ -161,7 +161,7 @@ class PomodoroAddonController:
 
     def open_settings(self) -> None:
         dialog = SettingsDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss())
+        dialog.setStyleSheet(addon_qss(self.settings.theme))
         dialog.export_requested.connect(lambda: self.backup_manager.export_backup(dialog))
         dialog.import_requested.connect(lambda: self._import_backup_from_dialog(dialog))
         dialog.reset_data_requested.connect(lambda: self._reset_study_data_from_dialog(dialog))
@@ -260,7 +260,7 @@ class PomodoroAddonController:
 
     def _edit_timer_duration(self) -> None:
         dialog = EditTimeDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss())
+        dialog.setStyleSheet(addon_qss(self.settings.theme))
         if not _dialog_accepted(dialog):
             return
         new_pomodoro = int(dialog.pomodoro_minutes)
@@ -291,7 +291,7 @@ class PomodoroAddonController:
 
     def _show_done_dialog(self) -> None:
         dialog = PomodoroDoneDialog(self.mw, self.settings, self._last_completed_metrics or self.metrics)
-        dialog.setStyleSheet(addon_qss())
+        dialog.setStyleSheet(addon_qss(self.settings.theme))
         if _dialog_accepted(dialog):
             if dialog.choice == CHOICE_END:
                 self.timer.stop()
@@ -309,7 +309,7 @@ class PomodoroAddonController:
 
     def _show_break_done_dialog(self) -> None:
         dialog = BreakDoneDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss())
+        dialog.setStyleSheet(addon_qss(self.settings.theme))
         if _dialog_accepted(dialog):
             if dialog.choice == CHOICE_END:
                 self.timer.stop()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from aqt.qt import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QSpinBox, QVBoxLayout, QWidget, pyqtSignal
 
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
-from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, PomodoroSettings
+from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, THEME_DARK, THEME_LIGHT, THEME_SYSTEM, PomodoroSettings
 from .ui_components import PillSwitcher, VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
 
@@ -40,6 +40,12 @@ class SettingsDialog(QDialog):
         self.layout_switcher.selectionChanged.connect(self._on_layout_changed)
         self._sidebar_side_visible = settings.layout == LAYOUT_SIDEBAR
 
+        self.theme_switcher = PillSwitcher(self)
+        self.theme_switcher.add_option(tr("settings.theme_system"), THEME_SYSTEM)
+        self.theme_switcher.add_option(tr("settings.theme_light"), THEME_LIGHT)
+        self.theme_switcher.add_option(tr("settings.theme_dark"), THEME_DARK)
+        self.theme_switcher.set_current_value(settings.theme)
+
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
         self.pomodoro_spin.setValue(settings.pomodoro_minutes)
@@ -70,6 +76,7 @@ class SettingsDialog(QDialog):
             (tr("settings.layout"), self.layout_switcher),
             (tr("settings.pomodoro_time"), self.pomodoro_spin),
             (tr("settings.break_time"), self.break_spin),
+            (tr("settings.theme"), self.theme_switcher),
             (tr("settings.language"), self.language_combo),
         ]:
             row = QHBoxLayout()
@@ -144,6 +151,7 @@ class SettingsDialog(QDialog):
         return PomodoroSettings(
             layout=str(self.layout_switcher.current_value() or previous.layout),
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
+            theme=str(self.theme_switcher.current_value() or previous.theme),
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),
