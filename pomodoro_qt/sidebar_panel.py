@@ -58,7 +58,8 @@ class SidebarWidget(QFrame):
         self.streak_metrics = streak_metrics
         self.study_time_metrics = study_time_metrics
         self.setProperty("panel", "sidebar")
-        self.setFixedWidth(260)
+        self.setMinimumWidth(220)
+        self.setMaximumWidth(400)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 32, 24, 24)
