@@ -40,7 +40,6 @@ def addon_qss() -> str:
     QFrame[panel="sidebar"] {{
         background: #FCFBF8;
         border: 0;
-        border-right: 1px solid #E0DED5;
     }}
     QFrame[panel="corner"] {{
         background: {COLORS["window"]};

@@ -9,7 +9,7 @@ from aqt.qt import QDockWidget, QWidget, Qt, QDesktopServices, QUrl
 from .corner_badge import HtmlCornerBadgeWidget
 from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
-from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SessionMetrics
+from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_RIGHT, SessionMetrics
 from .retention_metric import RetentionMetrics
 from .study_time_metric import StudyTimeMetrics
 from .sidebar_panel import SidebarWidget
@@ -21,6 +21,7 @@ from .under_toolbar import UnderToolbarWidget
 
 TOP_DOCK = Qt.DockWidgetArea.TopDockWidgetArea
 LEFT_DOCK = Qt.DockWidgetArea.LeftDockWidgetArea
+RIGHT_DOCK = Qt.DockWidgetArea.RightDockWidgetArea
 NO_DOCK_FEATURES = QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
 UNDER_TOOLBAR_STATES = {"deckBrowser", "overview", "review"}
 VISIBLE_LAYOUT_STATES = {"deckBrowser", "overview", "review"}
@@ -91,7 +92,8 @@ class UIManager:
             widget.setStyleSheet(addon_qss())
 
         self.under_dock = self._make_dock("PomodoroUnderToolbar", self.under_widget, TOP_DOCK)
-        self.sidebar_dock = self._make_dock("PomodoroSidebar", self.sidebar_widget, LEFT_DOCK)
+        sidebar_area = RIGHT_DOCK if settings.sidebar_side == SIDEBAR_RIGHT else LEFT_DOCK
+        self.sidebar_dock = self._make_dock("PomodoroSidebar", self.sidebar_widget, sidebar_area)
         self.corner_widget.set_saved_position(settings.corner_left, settings.corner_top)
 
         self._connect_layout_buttons(self.under_widget, floating_audio=True)
@@ -267,7 +269,7 @@ class UIManager:
         dock.setObjectName(object_name)
         dock.setWidget(widget)
         dock.setFeatures(NO_DOCK_FEATURES)
-        dock.setAllowedAreas(area)
+        dock.setAllowedAreas(LEFT_DOCK | RIGHT_DOCK | TOP_DOCK)
         dock.setTitleBarWidget(QWidget(dock))
         dock.setStyleSheet(addon_qss())
         self.mw.addDockWidget(area, dock)

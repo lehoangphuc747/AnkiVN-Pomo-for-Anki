@@ -16,9 +16,14 @@ MODE_POMODORO = "pomodoro"
 MODE_BREAK = "break"
 
 
+SIDEBAR_LEFT = "left"
+SIDEBAR_RIGHT = "right"
+
+
 @dataclass
 class PomodoroSettings:
     layout: str = LAYOUT_UNDER
+    sidebar_side: str = SIDEBAR_LEFT
     pomodoro_minutes: int = 25
     break_minutes: int = 5
     auto_start_break: bool = True
@@ -36,6 +41,7 @@ class PomodoroSettings:
 
         return cls(
             layout=layout,
+            sidebar_side=str(config.get("sidebar_side", SIDEBAR_LEFT)) if str(config.get("sidebar_side", SIDEBAR_LEFT)) in (SIDEBAR_LEFT, SIDEBAR_RIGHT) else SIDEBAR_LEFT,
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
             auto_start_break=bool(config.get("auto_start_break", True)),
@@ -48,6 +54,7 @@ class PomodoroSettings:
     def to_config(self) -> dict:
         return {
             "layout": self.layout,
+            "sidebar_side": self.sidebar_side,
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
             "auto_start_break": self.auto_start_break,

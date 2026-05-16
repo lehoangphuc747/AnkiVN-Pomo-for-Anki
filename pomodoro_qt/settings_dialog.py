@@ -5,7 +5,7 @@ from __future__ import annotations
 from aqt.qt import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QSpinBox, QVBoxLayout, QWidget, pyqtSignal
 
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
-from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, PomodoroSettings
+from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, PomodoroSettings
 from .ui_components import PillSwitcher, VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
 
@@ -32,6 +32,13 @@ class SettingsDialog(QDialog):
         self.layout_switcher.add_option(tr("layout.sidebar"), LAYOUT_SIDEBAR)
         self.layout_switcher.add_option(tr("layout.corner"), LAYOUT_CORNER)
         self.layout_switcher.set_current_value(settings.layout)
+
+        self.sidebar_side_switcher = PillSwitcher(self)
+        self.sidebar_side_switcher.add_option(tr("settings.sidebar_left"), SIDEBAR_LEFT)
+        self.sidebar_side_switcher.add_option(tr("settings.sidebar_right"), SIDEBAR_RIGHT)
+        self.sidebar_side_switcher.set_current_value(settings.sidebar_side)
+        self.layout_switcher.selectionChanged.connect(self._on_layout_changed)
+        self._sidebar_side_visible = settings.layout == LAYOUT_SIDEBAR
 
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
@@ -70,6 +77,13 @@ class SettingsDialog(QDialog):
             row.addStretch(1)
             row.addWidget(widget)
             root.addLayout(row)
+
+        self.sidebar_side_row = QHBoxLayout()
+        self.sidebar_side_row.addWidget(make_label(tr("settings.sidebar_position")))
+        self.sidebar_side_row.addStretch(1)
+        self.sidebar_side_row.addWidget(self.sidebar_side_switcher)
+        root.addLayout(self.sidebar_side_row)
+        self._update_sidebar_side_visibility()
 
         root.addWidget(self.auto_break)
         root.addWidget(self.auto_pomodoro_after_break)
@@ -129,6 +143,7 @@ class SettingsDialog(QDialog):
     def to_settings(self, previous: PomodoroSettings) -> PomodoroSettings:
         return PomodoroSettings(
             layout=str(self.layout_switcher.current_value() or previous.layout),
+            sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),
@@ -137,3 +152,15 @@ class SettingsDialog(QDialog):
             corner_left=previous.corner_left,
             corner_top=previous.corner_top,
         )
+
+    def _on_layout_changed(self, value: object) -> None:
+        self._sidebar_side_visible = value == LAYOUT_SIDEBAR
+        self._update_sidebar_side_visibility()
+
+    def _update_sidebar_side_visibility(self) -> None:
+        self.sidebar_side_switcher.setVisible(self._sidebar_side_visible)
+        # Walk the sidebar_side_row and hide/show all widgets
+        for i in range(self.sidebar_side_row.count()):
+            item = self.sidebar_side_row.itemAt(i)
+            if item and item.widget():
+                item.widget().setVisible(self._sidebar_side_visible)
