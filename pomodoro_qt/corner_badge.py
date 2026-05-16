@@ -164,7 +164,7 @@ class HtmlCornerBadgeWidget(QFrame):
         feedback_icon_src = _svg_data_uri(ICON_DIR / "question-svgrepo-com.svg")
         soundcloud_icon_src = _svg_data_uri(ICON_DIR / "soundcloud-sound-cloud-svgrepo-com.svg")
         bolt_icon_src = _svg_data_uri(ICON_DIR / "bolt-svgrepo-com.svg")
-        growth_icon_src = _svg_data_uri(ICON_DIR / "idea-svgrepo-com.svg")
+        growth_icon_src = _svg_data_uri(ICON_DIR / "level.svg")
         fire_icon_src = _svg_data_uri(ICON_DIR / "fire-svgrepo-com.svg")
         brain_icon_src = _svg_data_uri(ICON_DIR / "brain-svgrepo-com.svg")
         time_icon_src = _svg_data_uri(ICON_DIR / "time-clock-timer-appointment-svgrepo-com.svg")
