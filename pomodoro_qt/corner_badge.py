@@ -55,7 +55,7 @@ class HtmlCornerBadgeWidget(QFrame):
 
         self.setObjectName("HtmlCornerBadgeWidget")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._collapsed_height = 332
+        self._collapsed_height = 338
         self.setFixedSize(204, self._collapsed_height)
 
         self.web = self._make_webview()

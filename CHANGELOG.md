@@ -4,6 +4,14 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.11] - 2026-05-17
+
+### Giao diện
+
+- **Corner Badge order mới** — Play/Stop/History đặt ngay dưới timer, sau đó là 5 metric chips, cuối cùng là Sound/Feedback/Settings.
+
+---
+
 ## [1.1.10] - 2026-05-17
 
 ### Sửa lỗi

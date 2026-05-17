@@ -13,11 +13,25 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.10"
+CURRENT_VERSION = "1.1.11"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.11",
+        "date": "2026-05-17",
+        "vi": {
+            "Giao diện": [
+                "Corner Badge: đổi thứ tự thành Play/Stop/History → Stats → Sound/Feedback/Settings.",
+            ],
+        },
+        "en": {
+            "UI": [
+                "Corner Badge: reorder to Play/Stop/History → Stats → Sound/Feedback/Settings.",
+            ],
+        },
+    },
     {
         "version": "1.1.10",
         "date": "2026-05-17",

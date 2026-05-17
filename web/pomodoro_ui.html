@@ -28,6 +28,12 @@
       <div id="mode-text" class="mode-label">{{mode_pomodoro}}</div>
     </div>
 
+    <div class="controls controls-primary">
+      <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="control-icon" /></button>
+      <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden><img src="{{stop_icon_src}}" alt="" class="control-icon" /></button>
+      <button id="session-button" data-action="session" type="button" title="{{tooltip_session_history}}"><img src="{{history_icon_src}}" alt="" class="control-icon" /></button>
+    </div>
+
     <div class="metric-grid">
       <button id="experience-button" data-action="experience" type="button" class="metric-chip metric-level">
         <span id="experience-level">1</span>
@@ -51,11 +57,6 @@
       </button>
     </div>
 
-    <div class="controls controls-primary">
-      <button id="pause-button" data-action="pause" type="button" title="{{tooltip_pause_resume}}" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="control-icon" /></button>
-      <button id="stop-button" data-action="stop" type="button" title="{{tooltip_stop}}" hidden><img src="{{stop_icon_src}}" alt="" class="control-icon" /></button>
-      <button id="session-button" data-action="session" type="button" title="{{tooltip_session_history}}"><img src="{{history_icon_src}}" alt="" class="control-icon" /></button>
-    </div>
     <div class="controls controls-secondary">
       <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}"><img src="{{soundcloud_icon_src}}" alt="" class="control-icon" /></button>
       <button data-action="feedback" type="button" title="{{tooltip_feedback}}"><img src="{{feedback_icon_src}}" alt="" class="control-icon" /></button>

@@ -278,10 +278,6 @@ input {
   gap: 8px;
 }
 
-.controls-secondary {
-  margin-top: -6px;
-}
-
 .controls button,
 .audio-controls button {
   width: 28px;
