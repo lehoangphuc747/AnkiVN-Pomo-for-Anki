@@ -374,7 +374,7 @@ class UIManager:
         if self.corner_widget.parentWidget() is not parent:
             self.corner_widget.setParent(parent)
             self.corner_widget.setStyleSheet(addon_qss(self._theme))
-            self.corner_widget.set_saved_position(settings.corner_left, settings.corner_top)
+        self.corner_widget.set_saved_position(settings.corner_left, settings.corner_top)
         self.corner_widget.raise_()
 
     def _active_area_parent(self) -> Optional[QWidget]:

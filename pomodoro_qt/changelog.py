@@ -13,11 +13,25 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.6"
+CURRENT_VERSION = "1.1.7"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.7",
+        "date": "2026-05-17",
+        "vi": {
+            "Sửa lỗi": [
+                "Corner Badge giữ đúng vị trí khi chuyển giữa Deck → Overview → Study (không còn bị reset).",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "Corner Badge keeps its dragged position when navigating between Deck → Overview → Study.",
+            ],
+        },
+    },
     {
         "version": "1.1.6",
         "date": "2026-05-17",

@@ -308,6 +308,7 @@ class HtmlCornerBadgeWidget(QFrame):
             return
         if event_type == "dragEnd":
             self._drag_origin = None
+            self._saved_position = QPoint(self.x(), self.y())
             self.moved.emit(self.x(), self.y())
             return
         if event_type == "audioToggled":

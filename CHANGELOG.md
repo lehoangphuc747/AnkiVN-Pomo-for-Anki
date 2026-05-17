@@ -4,6 +4,16 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.7] - 2026-05-17
+
+### Sửa lỗi
+
+- **Corner Badge giữ đúng vị trí** — khi chuyển giữa Deck Browser → Overview → Study, Corner Badge không còn bị reset về góc mặc định mà giữ nguyên vị trí user đã drag.
+- Sync `_saved_position` ngay khi drag end để các lần show sau dùng đúng vị trí mới.
+- `_attach_corner_to_active_area` luôn cập nhật saved position từ settings, không chỉ khi parent thay đổi.
+
+---
+
 ## [1.1.6] - 2026-05-17
 
 ### Tính năng mới
