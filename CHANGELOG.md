@@ -4,6 +4,15 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.10] - 2026-05-17
+
+### Sửa lỗi
+
+- **Dark mode timer text** — chữ thời gian trong vòng tròn `CircularProgress` (Sidebar Panel) trước đây hardcode màu light nên bị chìm khi dark mode. Giờ đọc từ `active_colors()`.
+- **Dark mode ring background** — vòng nền (track) của timer cũng đổi sang `#3F3F44` trong dark mode thay vì hardcode `#EFECE5`.
+
+---
+
 ## [1.1.9] - 2026-05-17
 
 ### Giao diện

@@ -13,11 +13,27 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.9"
+CURRENT_VERSION = "1.1.10"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.10",
+        "date": "2026-05-17",
+        "vi": {
+            "Sửa lỗi": [
+                "Sidebar Panel: chữ thời gian trong vòng tròn timer không còn bị chìm trong dark mode.",
+                "Vòng nền của timer trong dark mode đổi sang màu tối phù hợp.",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "Sidebar Panel: timer text inside the circular ring is now readable in dark mode.",
+                "Ring background color also adapts to the active theme.",
+            ],
+        },
+    },
     {
         "version": "1.1.9",
         "date": "2026-05-17",

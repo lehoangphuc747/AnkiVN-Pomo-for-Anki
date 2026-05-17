@@ -507,12 +507,15 @@ class CircularProgress(QFrame):
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
         super().paintEvent(event)
+        from .style import active_colors, is_dark_active
+        c = active_colors()
+        ring_bg = "#3F3F44" if is_dark_active() else "#EFECE5"
         painter = QPainter(self)
         painter.setRenderHint(ANTIALIAS)
 
         margin = self._line_width + 4
         rect = self.rect().adjusted(margin, margin, -margin, -margin)
-        pen_bg = QPen(QColor("#EFECE5"), self._line_width)
+        pen_bg = QPen(QColor(ring_bg), self._line_width)
         pen_bg.setCapStyle(ROUND_CAP)
         painter.setPen(pen_bg)
         painter.drawEllipse(rect)
@@ -525,7 +528,7 @@ class CircularProgress(QFrame):
         if not self._show_text:
             return
 
-        painter.setPen(QColor(COLORS["text"]))
+        painter.setPen(QColor(c["text"]))
         font = painter.font()
         font.setPointSize(22)
         font.setBold(True)
