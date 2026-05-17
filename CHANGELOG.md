@@ -4,6 +4,16 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.8] - 2026-05-17
+
+### Sửa lỗi
+
+- **Crash khi đổi theme Anki** — sửa `RuntimeError: wrapped C/C++ object of type AnkiWebView has been deleted` xảy ra khi user đổi theme trong Anki Preferences. Nguyên nhân: `AnkiWebView` trong Corner Badge và YouTube preview bị xoá bằng `deleteLater` nhưng chưa unhook khỏi `theme_did_change`, khiến lần broadcast tiếp theo crash.
+- Thêm `cleanup()` cho `HtmlCornerBadgeWidget` và `AudioPopover` để gọi `web.cleanup()` của Anki trước khi destroy.
+- `UIManager.dispose()` gọi cleanup này trước `deleteLater`.
+
+---
+
 ## [1.1.7] - 2026-05-17
 
 ### Sửa lỗi

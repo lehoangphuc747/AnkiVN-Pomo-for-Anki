@@ -13,11 +13,27 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.7"
+CURRENT_VERSION = "1.1.8"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.8",
+        "date": "2026-05-17",
+        "vi": {
+            "Sửa lỗi": [
+                "Sửa lỗi khi đổi theme trong Preferences của Anki gây RuntimeError do AnkiWebView của PomoVN đã bị xoá nhưng hook theme_did_change vẫn gọi nó.",
+                "Cleanup AnkiWebView trước khi destroy widget (Corner Badge và YouTube preview).",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "Fix RuntimeError when switching theme in Anki Preferences caused by PomoVN's AnkiWebView being deleted while the theme_did_change hook still referenced it.",
+                "Cleanup AnkiWebView properly before destroying widgets (Corner Badge and YouTube preview).",
+            ],
+        },
+    },
     {
         "version": "1.1.7",
         "date": "2026-05-17",

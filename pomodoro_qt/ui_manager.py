@@ -138,10 +138,20 @@ class UIManager:
             self.sidebar_dock.deleteLater()
         if self.corner_widget is not None:
             self.corner_widget.hide()
+            if hasattr(self.corner_widget, "cleanup"):
+                try:
+                    self.corner_widget.cleanup()
+                except Exception:
+                    pass
             self.corner_widget.setParent(None)
             self.corner_widget.deleteLater()
         if self.audio_popover is not None:
             self.audio_popover.hide()
+            if hasattr(self.audio_popover, "cleanup"):
+                try:
+                    self.audio_popover.cleanup()
+                except Exception:
+                    pass
             self.audio_popover.deleteLater()
         for popover in self.metric_popovers.values():
             popover.hide()

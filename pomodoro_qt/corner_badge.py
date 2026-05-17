@@ -79,6 +79,20 @@ class HtmlCornerBadgeWidget(QFrame):
             return
         self._saved_position = QPoint(left, top)
 
+    def cleanup(self) -> None:
+        """Tear down the embedded AnkiWebView so global hooks no longer reference it."""
+        web = getattr(self, "web", None)
+        if web is None:
+            return
+        for attr in ("cleanup", "_onBridgeCmd", "_close_event"):
+            if hasattr(web, attr) and callable(getattr(web, attr)):
+                try:
+                    if attr == "cleanup":
+                        web.cleanup()
+                    break
+                except Exception:
+                    pass
+
     def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self._last_state = state
         if study_time_metrics is not None:
