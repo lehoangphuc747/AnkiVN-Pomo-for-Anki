@@ -1,9 +1,12 @@
 {
   "layout": "under",
+  "sidebar_side": "left",
+  "theme": "system",
   "pomodoro_minutes": 25,
   "break_minutes": 5,
   "auto_start_break": true,
   "auto_start_pomodoro_after_break": false,
+  "language": "vi",
   "corner_left": null,
   "corner_top": null
 }
