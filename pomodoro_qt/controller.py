@@ -190,6 +190,10 @@ class PomodoroAddonController:
         state = dict(state) if isinstance(state, dict) else default_state()
         state["last_changelog_version"] = CURRENT_VERSION
         state["suppress_changelog_popup"] = bool(suppress)
+        # Also update session_manager's internal state so subsequent saves preserve these keys
+        if hasattr(self, "session_manager") and hasattr(self.session_manager, "_state"):
+            self.session_manager._state["last_changelog_version"] = CURRENT_VERSION
+            self.session_manager._state["suppress_changelog_popup"] = bool(suppress)
         try:
             self.data_store.save(state)
         except Exception:

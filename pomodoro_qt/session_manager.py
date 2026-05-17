@@ -208,6 +208,8 @@ class PomodoroSessionManager:
                 "total_xp": 0,
                 "session_index": self.session_index,
                 "audio_state": self._audio_state,
+                "last_changelog_version": self._state.get("last_changelog_version", ""),
+                "suppress_changelog_popup": self._state.get("suppress_changelog_popup", False),
             }
         )
 
