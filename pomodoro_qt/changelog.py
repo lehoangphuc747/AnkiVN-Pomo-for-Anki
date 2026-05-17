@@ -13,11 +13,25 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.11"
+CURRENT_VERSION = "1.1.12"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.12",
+        "date": "2026-05-17",
+        "vi": {
+            "Sửa lỗi": [
+                "Sau khi sync (vd: học trên điện thoại), toolbar / sidebar / corner badge tự cập nhật metric mà không cần phải trả lời thẻ trên máy.",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "After Anki sync (e.g. mobile reviews), toolbar / sidebar / corner badge metrics refresh automatically without needing a local answer.",
+            ],
+        },
+    },
     {
         "version": "1.1.11",
         "date": "2026-05-17",

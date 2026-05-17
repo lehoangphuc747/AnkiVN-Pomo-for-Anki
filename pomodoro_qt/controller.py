@@ -76,6 +76,7 @@ class PomodoroAddonController:
             self.tracker.on_did_answer,
             self.tracker.on_reviewer_end,
             self._on_profile_will_close,
+            self._on_sync_did_finish,
         )
 
         self._last_completed_metrics: Optional[SessionMetrics] = None
@@ -254,6 +255,12 @@ class PomodoroAddonController:
 
     def _on_reviewer_refreshed(self, *args) -> None:
         QTimer.singleShot(0, self.update_visibility)
+
+    def _on_sync_did_finish(self, *args) -> None:
+        # Anki sync only writes to revlog/collection without firing answer hooks.
+        # Refresh the revlog-based metrics (Cards, Retention, Streak, Study Time, XP)
+        # so the toolbar reflects mobile reviews without waiting for the next answer.
+        QTimer.singleShot(0, self._refresh_revlog_metrics_after_answer)
 
     def _on_profile_will_close(self, *args) -> None:
         self._log_profile_event("profile_will_close.begin")

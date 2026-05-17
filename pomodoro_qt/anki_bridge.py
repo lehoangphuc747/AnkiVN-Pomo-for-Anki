@@ -14,6 +14,7 @@ class AnkiBridge:
         on_did_answer: Callable[..., object],
         on_reviewer_end: Callable[..., object],
         on_profile_close: Callable[..., None],
+        on_sync_finished: Callable[..., None],
     ) -> None:
         self._callbacks = {
             "state_did_change": on_state_changed,
@@ -23,6 +24,7 @@ class AnkiBridge:
             "reviewer_did_answer_card": on_did_answer,
             "reviewer_will_end": on_reviewer_end,
             "profile_will_close": on_profile_close,
+            "sync_did_finish": on_sync_finished,
         }
 
     def install(self) -> None:

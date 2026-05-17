@@ -4,6 +4,15 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.12] - 2026-05-17
+
+### Sửa lỗi
+
+- **Refresh metric sau khi sync** — sau khi Anki sync (vd: học trên điện thoại rồi sync về desktop), Cards / Retention / Streak / Study Time / XP tự cập nhật trên Toolbar / Sidebar / Corner Badge mà không cần phải trả lời thẻ mới ở local.
+- Hook `sync_did_finish` được đăng ký, gọi `invalidate_today_snapshot()` rồi refresh UI.
+
+---
+
 ## [1.1.11] - 2026-05-17
 
 ### Giao diện
