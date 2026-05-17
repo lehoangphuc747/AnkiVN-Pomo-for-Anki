@@ -276,6 +276,10 @@ input {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.controls-secondary {
+  margin-top: -6px;
   margin-bottom: 2px;
 }
 

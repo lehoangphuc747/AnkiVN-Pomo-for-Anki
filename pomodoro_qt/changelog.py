@@ -13,11 +13,27 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.8"
+CURRENT_VERSION = "1.1.9"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.1.9",
+        "date": "2026-05-17",
+        "vi": {
+            "Giao diện": [
+                "Corner Badge: tách hàng controls thành 2 hàng — hàng trên Play / Stop / History, hàng dưới Sound / Feedback / Settings.",
+                "Điều chỉnh chiều cao Corner Badge cho khít với nội dung, không còn khoảng trống dưới đáy.",
+            ],
+        },
+        "en": {
+            "UI": [
+                "Corner Badge: split controls into two rows — top: Play / Stop / History, bottom: Sound / Feedback / Settings.",
+                "Tightened Corner Badge height so there is no extra empty space at the bottom.",
+            ],
+        },
+    },
     {
         "version": "1.1.8",
         "date": "2026-05-17",

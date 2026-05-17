@@ -4,6 +4,15 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.1.9] - 2026-05-17
+
+### Giao diện
+
+- **Corner Badge tách 2 hàng controls** — hàng trên: Play / Stop / History, hàng dưới: Sound / Feedback / Settings.
+- **Bỏ khoảng trống dưới Corner Badge** — chiều cao điều chỉnh khít nội dung.
+
+---
+
 ## [1.1.8] - 2026-05-17
 
 ### Sửa lỗi
