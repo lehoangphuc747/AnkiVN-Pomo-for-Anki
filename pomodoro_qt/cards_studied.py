@@ -29,6 +29,8 @@ class CardsStudiedPopover(MetricPopover):
             tr("cards.subtitle"),
             COLORS["red"],
             BOLT_ICON_PATH,
+            help_sections=_help_sections(metrics),
+            help_title=tr("help.section_label"),
         )
         self._add_section_title(tr("cards.section_types"))
         self._add_type_grid(metrics)
@@ -171,6 +173,45 @@ def _footer_text(metrics: CardsStudiedMetrics) -> str:
         retention=format_number(metrics.retention),
         color=COLORS["green"] if metrics.retention >= 90 else COLORS["red"],
     )
+
+
+def _help_sections(metrics: CardsStudiedMetrics) -> list[tuple[str, str]]:
+    """Build live help text for the popover, citing the user's own numbers."""
+    correct = metrics.good_cards + metrics.easy_cards + metrics.hard_cards
+    return [
+        (
+            tr("cards.help_what_title"),
+            tr(
+                "cards.help_what_body",
+                cards=format_number(metrics.cards),
+            ),
+        ),
+        (
+            tr("cards.help_how_title"),
+            tr(
+                "cards.help_how_body",
+                review=format_number(metrics.review_cards),
+                learning=format_number(metrics.learning_cards),
+                relearning=format_number(metrics.relearning_cards),
+                filtered=format_number(metrics.filtered_cards),
+            ),
+        ),
+        (
+            tr("cards.help_buttons_title"),
+            tr(
+                "cards.help_buttons_body",
+                again=format_number(metrics.again_cards),
+                hard=format_number(metrics.hard_cards),
+                good=format_number(metrics.good_cards),
+                easy=format_number(metrics.easy_cards),
+                correct=format_number(correct),
+            ),
+        ),
+        (
+            tr("cards.help_note_title"),
+            tr("cards.help_note_body"),
+        ),
+    ]
 
 
 __all__ = ["CardsStudiedPopover", "make_cards_studied_popover"]

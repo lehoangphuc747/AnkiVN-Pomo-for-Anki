@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional, Sequence, Tuple
 
-from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QIcon, QLabel, QProgressBar, QSize, QVBoxLayout, Qt
+from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QIcon, QLabel, QProgressBar, QPushButton, QSize, QVBoxLayout, Qt
 
 from .popover_shell import PopoverShell
 from .style import COLORS
@@ -16,9 +16,15 @@ ALIGN_RIGHT = Qt.AlignmentFlag.AlignRight
 RICH_TEXT = Qt.TextFormat.RichText
 
 
+HelpSection = Tuple[str, str]
+
+
 class MetricPopover(PopoverShell):
     def __init__(self, width: int = 288) -> None:
         super().__init__(width, spacing=0)
+        self._help_sections: list[HelpSection] = []
+        self._help_title: str = ""
+        self._help_button: Optional[QPushButton] = None
 
     def add_header(
         self,
@@ -28,6 +34,8 @@ class MetricPopover(PopoverShell):
         subtitle: str,
         accent: str = COLORS["red"],
         icon_path: Optional[Path] = None,
+        help_sections: Optional[Sequence[HelpSection]] = None,
+        help_title: Optional[str] = None,
     ) -> None:
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -56,6 +64,12 @@ class MetricPopover(PopoverShell):
         eyebrow_row.addWidget(eyebrow_label)
         eyebrow_row.addStretch(1)
 
+        if help_sections:
+            self._help_sections = list(help_sections)
+            self._help_title = help_title or ""
+            self._help_button = self._make_help_button(accent)
+            eyebrow_row.addWidget(self._help_button)
+
         title_label = QLabel(title)
         title_label.setStyleSheet("font-size: 16px; font-weight: 650; color: #3E3C38;")
         subtitle_label = QLabel(subtitle)
@@ -69,6 +83,68 @@ class MetricPopover(PopoverShell):
         header.addLayout(title_box, 1)
         self.content_layout.addLayout(header)
         self.content_layout.addSpacing(14)
+
+    def _make_help_button(self, accent: str) -> QPushButton:
+        button = QPushButton("?")
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setFixedSize(QSize(20, 20))
+        button.setCheckable(True)
+        button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {COLORS['badge']};
+                color: {COLORS['muted']};
+                border: 0;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 0;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['soft']};
+                color: {accent};
+            }}
+            QPushButton:checked {{
+                background: {accent};
+                color: white;
+            }}
+            """
+        )
+        button.toggled.connect(self._on_help_toggled)
+        return button
+
+    def _on_help_toggled(self, checked: bool) -> None:
+        if checked:
+            self._render_help_panel()
+        self.set_help_visible(checked)
+
+    def _render_help_panel(self) -> None:
+        # Always rebuild so live numbers stay in sync with the main column.
+        from .popover_shell import _clear_layout
+        _clear_layout(self.help_layout)
+        if self._help_title:
+            title = QLabel(self._help_title)
+            title.setStyleSheet(
+                f"color: {COLORS['muted']}; font-size: 11px; font-weight: 800; letter-spacing: 1px;"
+            )
+            self.help_layout.addWidget(title)
+            self.help_layout.addSpacing(4)
+        for index, (section_title, section_body) in enumerate(self._help_sections):
+            heading = QLabel(section_title)
+            heading.setStyleSheet("color: #3E3C38; font-size: 13px; font-weight: 700;")
+            heading.setWordWrap(True)
+            body = QLabel(section_body)
+            body.setWordWrap(True)
+            body.setTextFormat(RICH_TEXT)
+            body.setStyleSheet(
+                f"color: {COLORS['text']}; font-size: 11px; font-weight: 500; line-height: 1.45;"
+            )
+            self.help_layout.addWidget(heading)
+            self.help_layout.addSpacing(2)
+            self.help_layout.addWidget(body)
+            if index < len(self._help_sections) - 1:
+                self.help_layout.addSpacing(10)
+        self.help_layout.addStretch(1)
 
     def add_progress(self, value: int, left_text: str, right_text: str, accent: str = COLORS["red"]) -> None:
         bar = QProgressBar()
