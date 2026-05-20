@@ -82,7 +82,17 @@ class SettingsDialog(QDialog):
         self.accent_swatch.setFixedSize(QSize(34, 26))
         self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip"))
         self.accent_swatch.clicked.connect(self._open_accent_picker)
+
+        # Break color swatch.
+        self._break_color_value: str = (settings.break_color or "").upper()
+        self.break_swatch = QPushButton()
+        self.break_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.break_swatch.setFixedSize(QSize(34, 26))
+        self.break_swatch.setToolTip(tr("settings.break_color_tooltip"))
+        self.break_swatch.clicked.connect(self._open_break_picker)
+
         self._refresh_accent_swatch()
+        self._refresh_break_swatch()
 
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
@@ -129,6 +139,8 @@ class SettingsDialog(QDialog):
         accent_row.addWidget(self.preset_combo)
         accent_row.addSpacing(6)
         accent_row.addWidget(self.accent_swatch)
+        accent_row.addSpacing(4)
+        accent_row.addWidget(self.break_swatch)
         root.addLayout(accent_row)
 
         self.sidebar_side_row = QHBoxLayout()
@@ -199,6 +211,7 @@ class SettingsDialog(QDialog):
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
             theme=str(self.theme_switcher.current_value() or previous.theme),
             accent_color=self._accent_value,
+            break_color=self._break_color_value,
             color_preset=self._current_preset_id,
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
@@ -218,7 +231,9 @@ class SettingsDialog(QDialog):
             preset = get_preset(self._current_preset_id)
             if preset:
                 self._accent_value = preset.accent.upper()
+                self._break_color_value = ""  # Use preset break color
         self._refresh_accent_swatch()
+        self._refresh_break_swatch()
 
     def _open_accent_picker(self) -> None:
         current = QColor(self._accent_value) if self._accent_value else QColor(self._effective_default_accent())
@@ -228,18 +243,32 @@ class SettingsDialog(QDialog):
         if not chosen.isValid():
             return
         self._accent_value = chosen.name().upper()
-        # Switch to custom preset when user picks a custom color.
+        self._switch_to_custom()
+        self._refresh_accent_swatch()
+
+    def _open_break_picker(self) -> None:
+        current_color = self._break_color_value or self._effective_break_from_preset()
+        current = QColor(current_color)
+        if not current.isValid():
+            current = QColor("#739E73")
+        chosen = QColorDialog.getColor(current, self, tr("settings.break_color_pick_title"))
+        if not chosen.isValid():
+            return
+        self._break_color_value = chosen.name().upper()
+        self._switch_to_custom()
+        self._refresh_break_swatch()
+
+    def _switch_to_custom(self) -> None:
+        """Switch preset dropdown to Custom when user picks a custom color."""
         self._current_preset_id = CUSTOM_PRESET_ID
         custom_index = self.preset_combo.findData(CUSTOM_PRESET_ID)
         if custom_index >= 0:
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentIndex(custom_index)
             self.preset_combo.blockSignals(False)
-        self._refresh_accent_swatch()
 
     def _refresh_accent_swatch(self) -> None:
         color = self._accent_value or self._effective_default_accent()
-        # Calculate a contrasting border so light accents stay visible on light bg.
         self.accent_swatch.setText("")
         self.accent_swatch.setStyleSheet(
             f"""
@@ -257,6 +286,33 @@ class SettingsDialog(QDialog):
             self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip_value", value=self._accent_value))
         else:
             self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip"))
+
+    def _refresh_break_swatch(self) -> None:
+        color = self._break_color_value or self._effective_break_from_preset()
+        self.break_swatch.setText("")
+        self.break_swatch.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {color};
+                border: 1px solid rgba(0, 0, 0, 0.18);
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                border: 1px solid rgba(0, 0, 0, 0.42);
+            }}
+            """
+        )
+        if self._break_color_value:
+            self.break_swatch.setToolTip(tr("settings.break_color_tooltip_value", value=self._break_color_value))
+        else:
+            self.break_swatch.setToolTip(tr("settings.break_color_tooltip"))
+
+    def _effective_break_from_preset(self) -> str:
+        if self._current_preset_id and self._current_preset_id != CUSTOM_PRESET_ID:
+            preset = get_preset(self._current_preset_id)
+            if preset:
+                return preset.break_color
+        return "#739E73"
 
     def _effective_default_accent(self) -> str:
         theme_value = self.theme_switcher.current_value()

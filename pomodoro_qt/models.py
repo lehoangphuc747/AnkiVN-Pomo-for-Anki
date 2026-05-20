@@ -30,6 +30,7 @@ class PomodoroSettings:
     sidebar_side: str = SIDEBAR_LEFT
     theme: str = THEME_SYSTEM
     accent_color: str = ""
+    break_color: str = ""
     color_preset: str = "classic"
     pomodoro_minutes: int = 25
     break_minutes: int = 5
@@ -51,6 +52,7 @@ class PomodoroSettings:
             sidebar_side=str(config.get("sidebar_side", SIDEBAR_LEFT)) if str(config.get("sidebar_side", SIDEBAR_LEFT)) in (SIDEBAR_LEFT, SIDEBAR_RIGHT) else SIDEBAR_LEFT,
             theme=str(config.get("theme", THEME_SYSTEM)) if str(config.get("theme", THEME_SYSTEM)) in (THEME_SYSTEM, THEME_LIGHT, THEME_DARK) else THEME_SYSTEM,
             accent_color=_normalize_accent(config.get("accent_color")),
+            break_color=_normalize_accent(config.get("break_color")),
             color_preset=str(config.get("color_preset") or "classic").strip() or "classic",
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
@@ -67,6 +69,7 @@ class PomodoroSettings:
             "sidebar_side": self.sidebar_side,
             "theme": self.theme,
             "accent_color": self.accent_color,
+            "break_color": self.break_color,
             "color_preset": self.color_preset,
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
@@ -88,7 +91,9 @@ class PomodoroSettings:
 
     @property
     def effective_break_color(self) -> str:
-        """Return the break color to use (preset or default green)."""
+        """Return the break color to use (custom > preset > default green)."""
+        if self.break_color:
+            return self.break_color
         from .color_presets import CUSTOM_PRESET_ID, get_preset
         if self.color_preset == CUSTOM_PRESET_ID:
             return "#739E73"
