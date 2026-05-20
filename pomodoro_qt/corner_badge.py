@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import base64
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -165,6 +166,20 @@ class HtmlCornerBadgeWidget(QFrame):
             return html
         return html[start + len("<body>") : end]
 
+    @staticmethod
+    def _plain_tooltip(text: str) -> str:
+        """Strip rich-text tags from a tooltip so it renders nicely in HTML title attributes.
+
+        Qt accepts rich text tooltips (``<b>``, ``<br>``, etc.), but the corner badge
+        is HTML and ``title="..."`` only displays plain text. Convert ``<br>`` to
+        newlines and drop other tags so the same i18n string can be reused everywhere.
+        """
+        if not text:
+            return ""
+        cleaned = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<[^>]+>", "", cleaned)
+        return cleaned.strip()
+
     def _render_template(self, template: str) -> str:
         from .style import _ACTIVE_THEME, is_dark_active
         theme_name = "dark" if is_dark_active() else "light"
@@ -190,8 +205,12 @@ class HtmlCornerBadgeWidget(QFrame):
             "theme_name": theme_name,
             "corner_aria": tr("corner.aria"),
             "tooltip_drag_corner": tr("tooltip.drag_corner"),
-            "tooltip_session_history": tr("tooltip.session_history"),
-            "tooltip_study_time": tr("tooltip.study_time"),
+            "tooltip_session_history": self._plain_tooltip(tr("tooltip.session_history")),
+            "tooltip_study_time": self._plain_tooltip(tr("tooltip.study_time")),
+            "tooltip_experience": self._plain_tooltip(tr("tooltip.experience")),
+            "tooltip_streak": self._plain_tooltip(tr("tooltip.streak")),
+            "tooltip_cards": self._plain_tooltip(tr("tooltip.cards")),
+            "tooltip_retention": self._plain_tooltip(tr("tooltip.retention")),
             "mode_pomodoro": tr("mode.pomodoro"),
             "level_short": tr("metric.level_short"),
             "tooltip_pause_resume": tr("tooltip.pause_resume"),
