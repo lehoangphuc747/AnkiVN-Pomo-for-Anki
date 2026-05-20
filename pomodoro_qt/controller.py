@@ -15,7 +15,15 @@ from .cards_studied import make_cards_studied_popover
 from .changelog import CURRENT_VERSION, has_unseen
 from .changelog_dialog import ChangelogDialog
 from .config_store import ConfigStore
-from .dialogs import BreakDoneDialog, CHOICE_END, EditTimeDialog, PomodoroDoneDialog
+from .cue_sound import play_end_cue, play_start_cue
+from .dialogs import (
+    BreakDoneDialog,
+    CHOICE_END,
+    CHOICE_KEEP_GOING,
+    CHOICE_NEW_POMO,
+    EditTimeDialog,
+    PomodoroDoneDialog,
+)
 from .experience import make_experience_popover
 from .experience_metric import ExperienceMetrics, level_state
 from .i18n import set_language, tr
@@ -80,6 +88,7 @@ class PomodoroAddonController:
         )
 
         self._last_completed_metrics: Optional[SessionMetrics] = None
+        self._pending_pomodoro_finalize = False
         self._last_timer_signature = None
         self._revlog_refresh_timer = QTimer(mw)
         self._revlog_refresh_timer.setSingleShot(True)
@@ -140,6 +149,7 @@ class PomodoroAddonController:
         self.metrics = self.session_manager.metrics()
         self._apply_revlog_metrics()
         self._last_completed_metrics = None
+        self._pending_pomodoro_finalize = False
         self._last_timer_signature = None
         self._storage_warning_shown = False
 
@@ -239,6 +249,11 @@ class PomodoroAddonController:
         self.timer.break_completed.connect(self._on_break_completed)
         self.timer.pomodoro_done.connect(self._show_done_dialog)
         self.timer.break_done.connect(self._show_break_done_dialog)
+        self.timer.mode_started.connect(self._on_mode_started)
+
+    def _on_mode_started(self, _mode: str) -> None:
+        # Cue plays for both Pomodoro and break starts.
+        play_start_cue()
 
     def _add_menu_action(self) -> None:
         menu = getattr(getattr(self.mw, "form", None), "menuTools", None)
@@ -297,6 +312,11 @@ class PomodoroAddonController:
         self._save_timer_state()
 
     def _stop_timer(self) -> None:
+        # While in overtime, "Stop" should open the done dialog (giving user
+        # New Pomo / Take break / End choice) rather than ending the session.
+        if self.timer.is_overtime:
+            self._show_done_dialog()
+            return
         duration_seconds = max(0, self.timer.total_seconds - self.timer.time_left)
         self.metrics = self.session_manager.stop_current_session(self.timer.mode, duration_seconds)
         self._warn_storage_failure_if_needed()
@@ -324,34 +344,95 @@ class PomodoroAddonController:
         self._save_timer_state()
 
     def _on_pomodoro_completed(self) -> None:
-        self._last_completed_metrics = self.session_manager.complete_pomodoro(self.timer.total_seconds)
-        self._warn_storage_failure_if_needed()
-        self.metrics = self.session_manager.metrics()
+        play_end_cue()
+        if self.settings.auto_start_break:
+            # No done dialog will be shown; finalize immediately.
+            self._last_completed_metrics = self.session_manager.complete_pomodoro(self.timer.total_seconds)
+            self._warn_storage_failure_if_needed()
+            self.metrics = self.session_manager.metrics()
+            self._pending_pomodoro_finalize = False
+        else:
+            # Defer finalize until the user picks an action in the done dialog.
+            # This lets a "Keep going" overtime stretch attach to the same session.
+            self._last_completed_metrics = self.session_manager.metrics()
+            self.metrics = self._last_completed_metrics
+            self._pending_pomodoro_finalize = True
         self._display_metrics()
 
+    def _finalize_pending_pomodoro(self) -> None:
+        if not self._pending_pomodoro_finalize:
+            return
+        duration = self.timer.total_seconds + max(0, int(self.timer.overtime_seconds))
+        self._last_completed_metrics = self.session_manager.complete_pomodoro(duration)
+        self._warn_storage_failure_if_needed()
+        self._pending_pomodoro_finalize = False
+        self.metrics = self.session_manager.metrics()
+
     def _on_break_completed(self) -> None:
+        play_end_cue()
         self.metrics = self.session_manager.complete_break(self.timer.total_seconds)
         self._warn_storage_failure_if_needed()
         self._display_metrics()
         QTimer.singleShot(0, self._mark_timer_started_if_running)
 
     def _show_done_dialog(self) -> None:
-        dialog = PomodoroDoneDialog(self.mw, self.settings, self._last_completed_metrics or self.metrics)
+        is_overtime = self.timer.is_overtime
+        if is_overtime:
+            # User is mid-overtime; refresh metrics so the dialog reflects
+            # cards / XP earned during the overtime stretch.
+            self.metrics = self.session_manager.metrics()
+            metrics_for_dialog = self.metrics
+        else:
+            metrics_for_dialog = self._last_completed_metrics or self.metrics
+
+        dialog = PomodoroDoneDialog(self.mw, self.settings, metrics_for_dialog, is_overtime=is_overtime)
         dialog.setStyleSheet(addon_qss(self.settings.theme))
-        if _dialog_accepted(dialog):
-            if dialog.choice == CHOICE_END:
-                self.timer.stop()
+        if not _dialog_accepted(dialog):
+            # User dismissed the dialog (X / Esc).
+            if is_overtime:
+                # Treat as "I changed my mind, keep counting up." Leave the
+                # overtime timer alone so the session continues seamlessly.
                 self._save_timer_state()
-                self._refresh_metrics()
                 return
-            if dialog.choice == MODE_BREAK and dialog.break_minutes != self.settings.break_minutes:
-                self.settings.break_minutes = int(dialog.break_minutes)
-                self.config_store.save(self.settings)
-                self.timer.apply_settings(self.settings)
-            self.timer.start_mode(dialog.choice)
-            if dialog.choice == MODE_POMODORO:
-                self._mark_timer_started_if_running()
+            # Normal Pomodoro completion: finalize so the session doesn't
+            # dangle, but leave the timer in its current paused state.
+            self._finalize_pending_pomodoro()
             self._save_timer_state()
+            self._refresh_metrics()
+            return
+
+        choice = dialog.choice
+        if choice == CHOICE_KEEP_GOING:
+            # Stay in the same Pomodoro session; switch the timer to overtime
+            # count-up. Finalization is deferred until the user picks New Pomo,
+            # Take break, or End from a later dialog.
+            self.timer.start_overtime()
+            self._mark_timer_started_if_running()
+            self._save_timer_state()
+            return
+
+        if choice == CHOICE_END:
+            self._finalize_pending_pomodoro()
+            self.timer.stop()
+            self._save_timer_state()
+            self._refresh_metrics()
+            return
+
+        if choice == CHOICE_NEW_POMO:
+            self._finalize_pending_pomodoro()
+            self.timer.start_mode(MODE_POMODORO)
+            self._mark_timer_started_if_running()
+            self._save_timer_state()
+            return
+
+        # MODE_BREAK -> take a break
+        if dialog.break_minutes != self.settings.break_minutes:
+            self.settings.break_minutes = int(dialog.break_minutes)
+            self.config_store.save(self.settings)
+            self.timer.apply_settings(self.settings)
+        self._finalize_pending_pomodoro()
+        self.timer.start_mode(MODE_BREAK)
+        self._save_timer_state()
 
     def _show_break_done_dialog(self) -> None:
         dialog = BreakDoneDialog(self.mw, self.settings)
@@ -532,6 +613,7 @@ class PomodoroAddonController:
         self.timer.apply_settings(self.settings)
         self.timer.restore_state(self.session_manager.timer_state())
         self._last_timer_signature = None
+        self._pending_pomodoro_finalize = False
         self._update_menu_text()
         self._rebuild_ui()
         self.update_visibility()
@@ -567,6 +649,7 @@ class PomodoroAddonController:
         self.revlog_metrics_source = RevlogMetricsSource(self.mw)
         self._apply_revlog_metrics()
         self._last_completed_metrics = None
+        self._pending_pomodoro_finalize = False
         self._last_timer_signature = None
         self.timer.apply_settings(self.settings)
         self.timer.restore_state(self.session_manager.timer_state())

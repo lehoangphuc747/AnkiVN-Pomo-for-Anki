@@ -79,6 +79,8 @@ class PomodoroTimerState:
     time_left: int
     paused: bool
     started: bool = False
+    is_overtime: bool = False
+    overtime_seconds: int = 0
 
     @property
     def label(self) -> str:
@@ -92,12 +94,18 @@ class PomodoroTimerState:
 
     @property
     def time_text(self) -> str:
+        if self.is_overtime:
+            minutes = self.overtime_seconds // 60
+            seconds = self.overtime_seconds % 60
+            return f"+{minutes:02d}:{seconds:02d}"
         minutes = self.time_left // 60
         seconds = self.time_left % 60
         return f"{minutes:02d}:{seconds:02d}"
 
     @property
     def progress(self) -> float:
+        if self.is_overtime:
+            return 0.0
         if self.total_seconds <= 0:
             return 0.0
         return max(0.0, min(1.0, self.time_left / self.total_seconds))
@@ -111,6 +119,8 @@ class TimerRuntimeState:
     paused: bool = True
     started: bool = False
     saved_at: str = ""
+    is_overtime: bool = False
+    overtime_seconds: int = 0
 
     @classmethod
     def from_dict(cls, data: object) -> "TimerRuntimeState":
@@ -119,6 +129,10 @@ class TimerRuntimeState:
         mode = MODE_BREAK if data.get("mode") == MODE_BREAK else MODE_POMODORO
         total_seconds = _clamp_int(data.get("total_seconds"), 25 * 60, 1, 24 * 60 * 60)
         time_left = _clamp_int(data.get("time_left"), total_seconds, 0, total_seconds)
+        is_overtime = bool(data.get("is_overtime", False)) and mode == MODE_POMODORO
+        overtime_seconds = _clamp_int(data.get("overtime_seconds"), 0, 0, 24 * 60 * 60)
+        if not is_overtime:
+            overtime_seconds = 0
         return cls(
             mode=mode,
             total_seconds=total_seconds,
@@ -126,6 +140,8 @@ class TimerRuntimeState:
             paused=bool(data.get("paused", True)),
             started=bool(data.get("started", False)),
             saved_at=str(data.get("saved_at") or ""),
+            is_overtime=is_overtime,
+            overtime_seconds=overtime_seconds,
         )
 
     def to_dict(self) -> dict:
@@ -136,6 +152,8 @@ class TimerRuntimeState:
             "paused": self.paused,
             "started": self.started,
             "saved_at": self.saved_at,
+            "is_overtime": self.is_overtime,
+            "overtime_seconds": self.overtime_seconds,
         }
 
 

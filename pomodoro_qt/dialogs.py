@@ -11,12 +11,21 @@ from .ui_components import ALIGN_CENTER, make_button, make_label, set_addon_wind
 
 
 CHOICE_END = "end"
+CHOICE_KEEP_GOING = "keep_going"
+CHOICE_NEW_POMO = "new_pomo"
 
 
 class PomodoroDoneDialog(QDialog):
-    def __init__(self, parent: QWidget, settings: PomodoroSettings, metrics: SessionMetrics) -> None:
+    def __init__(
+        self,
+        parent: QWidget,
+        settings: PomodoroSettings,
+        metrics: SessionMetrics,
+        is_overtime: bool = False,
+    ) -> None:
         super().__init__(parent)
         self.choice = MODE_BREAK
+        self.is_overtime = bool(is_overtime)
         self.break_minutes = int(settings.break_minutes)
         self.pomodoro_minutes = int(settings.pomodoro_minutes)
         self.setWindowTitle(tr("dialog.done_title"))
@@ -60,21 +69,25 @@ class PomodoroDoneDialog(QDialog):
         root.addLayout(break_row)
 
         actions = QHBoxLayout()
-        actions.setSpacing(16)
-        keep_going = make_button(tr("action.keep_going"), "secondary")
+        actions.setSpacing(12)
+        actions.addStretch(1)
+        if not self.is_overtime:
+            keep_going = make_button(tr("action.keep_going"), "secondary")
+            keep_going.clicked.connect(self._keep_going)
+            actions.addWidget(keep_going)
+        new_pomo = make_button(tr("action.new_pomo"), "secondary")
         self.take_break_button = make_button(
             tr("action.take_break", minutes=format_number(settings.break_minutes)),
             "primary",
         )
         end_session = make_button(tr("action.end"), "secondary")
-        actions.addStretch(1)
-        actions.addWidget(keep_going)
+        actions.addWidget(new_pomo)
         actions.addWidget(self.take_break_button)
         actions.addWidget(end_session)
         actions.addStretch(1)
         root.addLayout(actions)
 
-        keep_going.clicked.connect(self._keep_going)
+        new_pomo.clicked.connect(self._new_pomo)
         self.take_break_button.clicked.connect(self._take_break)
         end_session.clicked.connect(self._end_session)
 
@@ -85,7 +98,11 @@ class PomodoroDoneDialog(QDialog):
         )
 
     def _keep_going(self) -> None:
-        self.choice = MODE_POMODORO
+        self.choice = CHOICE_KEEP_GOING
+        self.accept()
+
+    def _new_pomo(self) -> None:
+        self.choice = CHOICE_NEW_POMO
         self.accept()
 
     def _take_break(self) -> None:
