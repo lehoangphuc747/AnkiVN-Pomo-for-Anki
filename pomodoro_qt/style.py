@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional, Tuple
+
 
 COLORS = {
     "bg": "#F8F7F3",
@@ -38,6 +40,10 @@ COLORS_DARK = {
 }
 
 
+DEFAULT_ACCENT_LIGHT = COLORS["red"]
+DEFAULT_ACCENT_DARK = COLORS_DARK["red"]
+
+
 def _is_system_dark() -> bool:
     """Detect if the OS is using dark mode."""
     try:
@@ -52,38 +58,119 @@ def _is_system_dark() -> bool:
     return False
 
 
-def resolve_colors(theme: str = "system") -> dict:
-    """Return the active color palette based on theme setting."""
+def _normalize_hex(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if not text.startswith("#"):
+        text = "#" + text
+    if len(text) == 4:
+        text = "#" + "".join(ch * 2 for ch in text[1:])
+    if len(text) != 7:
+        return None
+    try:
+        int(text[1:], 16)
+    except ValueError:
+        return None
+    return text.upper()
+
+
+def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
+    return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
+
+
+def _rgb_to_hex(r: int, g: int, b: int) -> str:
+    r = max(0, min(255, int(r)))
+    g = max(0, min(255, int(g)))
+    b = max(0, min(255, int(b)))
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def _shade(hex_color: str, factor: float) -> str:
+    """Return a shaded version of ``hex_color``.
+
+    factor < 0 → darker, factor > 0 → lighter, both in range -1..1.
+    """
+    r, g, b = _hex_to_rgb(hex_color)
+    if factor < 0:
+        # Darken: blend toward black.
+        amount = min(1.0, -factor)
+        r = r * (1 - amount)
+        g = g * (1 - amount)
+        b = b * (1 - amount)
+    else:
+        amount = min(1.0, factor)
+        r = r + (255 - r) * amount
+        g = g + (255 - g) * amount
+        b = b + (255 - b) * amount
+    return _rgb_to_hex(r, g, b)
+
+
+def _derive_accent(accent_hex: str, *, dark: bool) -> Tuple[str, str, str]:
+    """Return (accent, accent_dark, accent_light) given a base accent color."""
+    base = accent_hex
+    if dark:
+        # Dark theme: darker tinted background, lighter highlight.
+        return base, _shade(base, -0.18), _shade(base, -0.55)
+    return base, _shade(base, -0.12), _shade(base, 0.86)
+
+
+def _apply_accent(palette: dict, accent_hex: Optional[str], *, dark: bool) -> dict:
+    if not accent_hex:
+        return palette
+    normalized = _normalize_hex(accent_hex)
+    if not normalized:
+        return palette
+    red, red_dark, red_light = _derive_accent(normalized, dark=dark)
+    result = dict(palette)
+    result["red"] = red
+    result["red_dark"] = red_dark
+    result["red_light"] = red_light
+    return result
+
+
+def resolve_colors(theme: str = "system", accent_color: Optional[str] = None) -> dict:
+    """Return the active color palette based on theme + optional accent override."""
     if theme == "dark":
-        return COLORS_DARK
+        return _apply_accent(COLORS_DARK, accent_color, dark=True)
     if theme == "light":
-        return COLORS
+        return _apply_accent(COLORS, accent_color, dark=False)
     # system
-    return COLORS_DARK if _is_system_dark() else COLORS
+    if _is_system_dark():
+        return _apply_accent(COLORS_DARK, accent_color, dark=True)
+    return _apply_accent(COLORS, accent_color, dark=False)
 
 
 _ACTIVE_THEME = "system"
+_ACTIVE_ACCENT: Optional[str] = None
 
 
-def set_active_theme(theme: str) -> None:
+def set_active_theme(theme: str, accent_color: Optional[str] = None) -> None:
     """Track the currently applied theme so palette helpers stay in sync."""
-    global _ACTIVE_THEME
+    global _ACTIVE_THEME, _ACTIVE_ACCENT
     _ACTIVE_THEME = theme if theme in ("system", "light", "dark") else "system"
+    _ACTIVE_ACCENT = _normalize_hex(accent_color)
 
 
 def active_colors() -> dict:
-    """Return the colors palette for the currently applied theme."""
-    return resolve_colors(_ACTIVE_THEME)
+    """Return the colors palette for the currently applied theme + accent."""
+    return resolve_colors(_ACTIVE_THEME, _ACTIVE_ACCENT)
 
 
 def is_dark_active() -> bool:
     """Return True when the active theme resolves to the dark palette."""
-    return active_colors() is COLORS_DARK
+    if _ACTIVE_THEME == "dark":
+        return True
+    if _ACTIVE_THEME == "light":
+        return False
+    return _is_system_dark()
 
 
-def addon_qss(theme: str = "system") -> str:
-    c = resolve_colors(theme)
-    set_active_theme(theme)
+def addon_qss(theme: str = "system", accent_color: Optional[str] = None) -> str:
+    c = resolve_colors(theme, accent_color)
+    set_active_theme(theme, accent_color)
     return f"""
     QWidget {{
         color: {c["text"]};

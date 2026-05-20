@@ -2,10 +2,26 @@
 
 from __future__ import annotations
 
-from aqt.qt import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QSpinBox, QVBoxLayout, QWidget, pyqtSignal
+from aqt.qt import (
+    QCheckBox,
+    QColor,
+    QColorDialog,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QPushButton,
+    QSize,
+    QSpinBox,
+    Qt,
+    QVBoxLayout,
+    QWidget,
+    pyqtSignal,
+)
 
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, THEME_DARK, THEME_LIGHT, THEME_SYSTEM, PomodoroSettings
+from .style import DEFAULT_ACCENT_DARK, DEFAULT_ACCENT_LIGHT
 from .ui_components import PillSwitcher, VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
 
@@ -46,6 +62,17 @@ class SettingsDialog(QDialog):
         self.theme_switcher.add_option(tr("settings.theme_dark"), THEME_DARK)
         self.theme_switcher.set_current_value(settings.theme)
 
+        # Accent color picker.
+        self._accent_value: str = (settings.accent_color or "").upper()
+        self.accent_swatch = QPushButton()
+        self.accent_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.accent_swatch.setFixedSize(QSize(34, 26))
+        self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip"))
+        self.accent_swatch.clicked.connect(self._open_accent_picker)
+        self.accent_reset_button = make_button(tr("settings.accent_reset"), "secondary", tr("settings.accent_reset_tooltip"))
+        self.accent_reset_button.clicked.connect(self._reset_accent)
+        self._refresh_accent_swatch()
+
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
         self.pomodoro_spin.setValue(settings.pomodoro_minutes)
@@ -84,6 +111,14 @@ class SettingsDialog(QDialog):
             row.addStretch(1)
             row.addWidget(widget)
             root.addLayout(row)
+
+        accent_row = QHBoxLayout()
+        accent_row.addWidget(make_label(tr("settings.accent_color")))
+        accent_row.addStretch(1)
+        accent_row.addWidget(self.accent_swatch)
+        accent_row.addSpacing(6)
+        accent_row.addWidget(self.accent_reset_button)
+        root.addLayout(accent_row)
 
         self.sidebar_side_row = QHBoxLayout()
         self.sidebar_side_row.addWidget(make_label(tr("settings.sidebar_position")))
@@ -152,6 +187,7 @@ class SettingsDialog(QDialog):
             layout=str(self.layout_switcher.current_value() or previous.layout),
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
             theme=str(self.theme_switcher.current_value() or previous.theme),
+            accent_color=self._accent_value,
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),
@@ -160,6 +196,47 @@ class SettingsDialog(QDialog):
             corner_left=previous.corner_left,
             corner_top=previous.corner_top,
         )
+
+    def _open_accent_picker(self) -> None:
+        current = QColor(self._accent_value) if self._accent_value else QColor(self._effective_default_accent())
+        if not current.isValid():
+            current = QColor(self._effective_default_accent())
+        chosen = QColorDialog.getColor(current, self, tr("settings.accent_pick_title"))
+        if not chosen.isValid():
+            return
+        self._accent_value = chosen.name().upper()
+        self._refresh_accent_swatch()
+
+    def _reset_accent(self) -> None:
+        self._accent_value = ""
+        self._refresh_accent_swatch()
+
+    def _refresh_accent_swatch(self) -> None:
+        color = self._accent_value or self._effective_default_accent()
+        # Calculate a contrasting border so light accents stay visible on light bg.
+        self.accent_swatch.setText("")
+        self.accent_swatch.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {color};
+                border: 1px solid rgba(0, 0, 0, 0.18);
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                border: 1px solid rgba(0, 0, 0, 0.42);
+            }}
+            """
+        )
+        if self._accent_value:
+            self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip_value", value=self._accent_value))
+        else:
+            self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip"))
+
+    def _effective_default_accent(self) -> str:
+        theme_value = self.theme_switcher.current_value()
+        if theme_value == THEME_DARK:
+            return DEFAULT_ACCENT_DARK
+        return DEFAULT_ACCENT_LIGHT
 
     def _on_layout_changed(self, value: object) -> None:
         self._sidebar_side_visible = value == LAYOUT_SIDEBAR

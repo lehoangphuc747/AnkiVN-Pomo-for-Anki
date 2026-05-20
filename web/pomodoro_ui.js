@@ -29,8 +29,38 @@
     send("action", { action: name });
   }
 
+  function shadeColor(hex, factor) {
+    if (!hex || typeof hex !== "string") return hex;
+    let value = hex.trim();
+    if (value.startsWith("#")) value = value.slice(1);
+    if (value.length === 3) value = value.split("").map((c) => c + c).join("");
+    if (value.length !== 6) return hex;
+    const num = parseInt(value, 16);
+    if (Number.isNaN(num)) return hex;
+    let r = (num >> 16) & 0xff;
+    let g = (num >> 8) & 0xff;
+    let b = num & 0xff;
+    if (factor < 0) {
+      const amount = Math.min(1, -factor);
+      r = Math.round(r * (1 - amount));
+      g = Math.round(g * (1 - amount));
+      b = Math.round(b * (1 - amount));
+    } else {
+      const amount = Math.min(1, factor);
+      r = Math.round(r + (255 - r) * amount);
+      g = Math.round(g + (255 - g) * amount);
+      b = Math.round(b + (255 - b) * amount);
+    }
+    return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+  }
+
   function setAccent(color) {
     root.style.setProperty("--anki-red", color);
+    const isDark = root.dataset.theme === "dark";
+    const dark = shadeColor(color, isDark ? -0.18 : -0.12);
+    const light = shadeColor(color, isDark ? -0.55 : 0.86);
+    root.style.setProperty("--anki-red-dark", dark);
+    root.style.setProperty("--anki-red-light", light);
     timerText.style.color = color;
     if (timerRingProgress) {
       timerRingProgress.setAttribute("stroke", color);

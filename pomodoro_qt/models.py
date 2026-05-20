@@ -29,6 +29,7 @@ class PomodoroSettings:
     layout: str = LAYOUT_UNDER
     sidebar_side: str = SIDEBAR_LEFT
     theme: str = THEME_SYSTEM
+    accent_color: str = ""
     pomodoro_minutes: int = 25
     break_minutes: int = 5
     auto_start_break: bool = True
@@ -48,6 +49,7 @@ class PomodoroSettings:
             layout=layout,
             sidebar_side=str(config.get("sidebar_side", SIDEBAR_LEFT)) if str(config.get("sidebar_side", SIDEBAR_LEFT)) in (SIDEBAR_LEFT, SIDEBAR_RIGHT) else SIDEBAR_LEFT,
             theme=str(config.get("theme", THEME_SYSTEM)) if str(config.get("theme", THEME_SYSTEM)) in (THEME_SYSTEM, THEME_LIGHT, THEME_DARK) else THEME_SYSTEM,
+            accent_color=_normalize_accent(config.get("accent_color")),
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
             auto_start_break=bool(config.get("auto_start_break", True)),
@@ -62,6 +64,7 @@ class PomodoroSettings:
             "layout": self.layout,
             "sidebar_side": self.sidebar_side,
             "theme": self.theme,
+            "accent_color": self.accent_color,
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
             "auto_start_break": self.auto_start_break,
@@ -90,7 +93,10 @@ class PomodoroTimerState:
 
     @property
     def accent(self) -> str:
-        return "#739E73" if self.mode == MODE_BREAK else "#D94B43"
+        if self.mode == MODE_BREAK:
+            return "#739E73"
+        from .style import active_colors
+        return active_colors().get("red", "#D94B43")
 
     @property
     def time_text(self) -> str:
@@ -364,3 +370,23 @@ def _optional_int(value: object) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_accent(value: object) -> str:
+    """Normalize an accent color string. Empty string means 'use default'."""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    if not text.startswith("#"):
+        text = "#" + text
+    if len(text) == 4:
+        text = "#" + "".join(ch * 2 for ch in text[1:])
+    if len(text) != 7:
+        return ""
+    try:
+        int(text[1:], 16)
+    except ValueError:
+        return ""
+    return text.upper()
