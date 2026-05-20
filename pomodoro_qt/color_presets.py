@@ -17,16 +17,17 @@ class ColorPreset:
     label_key: str
     accent: str  # Pomodoro accent
     break_color: str  # Break accent
+    bg_tint: str = ""  # Background tint (empty = no tint)
 
 
 PRESETS: tuple[ColorPreset, ...] = (
-    ColorPreset("classic", "preset.classic", "#D94B43", "#739E73"),
-    ColorPreset("ocean", "preset.ocean", "#2196F3", "#26A69A"),
-    ColorPreset("sakura", "preset.sakura", "#E91E63", "#AB47BC"),
-    ColorPreset("midnight", "preset.midnight", "#7C4DFF", "#448AFF"),
-    ColorPreset("sunset", "preset.sunset", "#FF6D00", "#FFB300"),
-    ColorPreset("forest", "preset.forest", "#2E7D32", "#558B2F"),
-    ColorPreset("mocha", "preset.mocha", "#795548", "#8D6E63"),
+    ColorPreset("classic", "preset.classic", "#D94B43", "#739E73", ""),
+    ColorPreset("ocean", "preset.ocean", "#2196F3", "#26A69A", "#E3F2FD"),
+    ColorPreset("sakura", "preset.sakura", "#E91E63", "#AB47BC", "#FCE4EC"),
+    ColorPreset("midnight", "preset.midnight", "#7C4DFF", "#448AFF", "#EDE7F6"),
+    ColorPreset("sunset", "preset.sunset", "#FF6D00", "#FFB300", "#FFF3E0"),
+    ColorPreset("forest", "preset.forest", "#2E7D32", "#558B2F", "#E8F5E9"),
+    ColorPreset("mocha", "preset.mocha", "#795548", "#8D6E63", "#EFEBE9"),
 )
 
 CUSTOM_PRESET_ID = "custom"

@@ -190,7 +190,7 @@ class PomodoroAddonController:
             return
         try:
             dialog = ChangelogDialog(self.mw, last_seen)
-            dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color))
+            dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
             dialog.exec()
             self._record_changelog_seen(state, suppress=dialog.dont_show_again)
         except Exception:
@@ -211,7 +211,7 @@ class PomodoroAddonController:
 
     def open_settings(self) -> None:
         dialog = SettingsDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color))
+        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
         dialog.export_requested.connect(lambda: self.backup_manager.export_backup(dialog))
         dialog.import_requested.connect(lambda: self._import_backup_from_dialog(dialog))
         dialog.reset_data_requested.connect(lambda: self._reset_study_data_from_dialog(dialog))
@@ -326,7 +326,7 @@ class PomodoroAddonController:
 
     def _edit_timer_duration(self) -> None:
         dialog = EditTimeDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color))
+        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
         if not _dialog_accepted(dialog):
             return
         new_pomodoro = int(dialog.pomodoro_minutes)
@@ -386,7 +386,7 @@ class PomodoroAddonController:
             metrics_for_dialog = self._last_completed_metrics or self.metrics
 
         dialog = PomodoroDoneDialog(self.mw, self.settings, metrics_for_dialog, is_overtime=is_overtime)
-        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color))
+        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
         if not _dialog_accepted(dialog):
             # User dismissed the dialog (X / Esc).
             if is_overtime:
@@ -436,7 +436,7 @@ class PomodoroAddonController:
 
     def _show_break_done_dialog(self) -> None:
         dialog = BreakDoneDialog(self.mw, self.settings)
-        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color))
+        dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
         if _dialog_accepted(dialog):
             if dialog.choice == CHOICE_END:
                 self.timer.stop()

@@ -31,6 +31,7 @@ class PomodoroSettings:
     theme: str = THEME_SYSTEM
     accent_color: str = ""
     break_color: str = ""
+    bg_tint: str = ""
     color_preset: str = "classic"
     pomodoro_minutes: int = 25
     break_minutes: int = 5
@@ -53,6 +54,7 @@ class PomodoroSettings:
             theme=str(config.get("theme", THEME_SYSTEM)) if str(config.get("theme", THEME_SYSTEM)) in (THEME_SYSTEM, THEME_LIGHT, THEME_DARK) else THEME_SYSTEM,
             accent_color=_normalize_accent(config.get("accent_color")),
             break_color=_normalize_accent(config.get("break_color")),
+            bg_tint=_normalize_accent(config.get("bg_tint")),
             color_preset=str(config.get("color_preset") or "classic").strip() or "classic",
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
@@ -70,6 +72,7 @@ class PomodoroSettings:
             "theme": self.theme,
             "accent_color": self.accent_color,
             "break_color": self.break_color,
+            "bg_tint": self.bg_tint,
             "color_preset": self.color_preset,
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
@@ -99,6 +102,17 @@ class PomodoroSettings:
             return "#739E73"
         preset = get_preset(self.color_preset)
         return preset.break_color if preset else "#739E73"
+
+    @property
+    def effective_bg_tint(self) -> str:
+        """Return the bg tint to use (custom > preset > empty)."""
+        if self.bg_tint:
+            return self.bg_tint
+        from .color_presets import CUSTOM_PRESET_ID, get_preset
+        if self.color_preset == CUSTOM_PRESET_ID:
+            return ""
+        preset = get_preset(self.color_preset)
+        return preset.bg_tint if preset else ""
 
 
 @dataclass

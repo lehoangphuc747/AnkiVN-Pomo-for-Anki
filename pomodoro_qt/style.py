@@ -131,34 +131,65 @@ def _apply_accent(palette: dict, accent_hex: Optional[str], *, dark: bool) -> di
     return result
 
 
-def resolve_colors(theme: str = "system", accent_color: Optional[str] = None) -> dict:
-    """Return the active color palette based on theme + optional accent override."""
+def _blend(base_hex: str, tint_hex: str, amount: float = 0.08) -> str:
+    """Blend ``tint_hex`` into ``base_hex`` at the given opacity (0..1)."""
+    br, bg, bb = _hex_to_rgb(base_hex)
+    tr_, tg, tb = _hex_to_rgb(tint_hex)
+    r = br + (tr_ - br) * amount
+    g = bg + (tg - bg) * amount
+    b = bb + (tb - bb) * amount
+    return _rgb_to_hex(r, g, b)
+
+
+def _apply_bg_tint(palette: dict, bg_tint: Optional[str], *, dark: bool) -> dict:
+    if not bg_tint:
+        return palette
+    normalized = _normalize_hex(bg_tint)
+    if not normalized:
+        return palette
+    result = dict(palette)
+    # Blend tint into background-related keys at a subtle opacity.
+    amount = 0.12 if not dark else 0.06
+    for key in ("window", "bg", "soft", "badge"):
+        if key in result:
+            result[key] = _blend(result[key], normalized, amount)
+    return result
+
+
+def resolve_colors(theme: str = "system", accent_color: Optional[str] = None, bg_tint: Optional[str] = None) -> dict:
+    """Return the active color palette based on theme + optional accent + bg tint override."""
     if theme == "dark":
-        return _apply_accent(COLORS_DARK, accent_color, dark=True)
+        base = _apply_accent(COLORS_DARK, accent_color, dark=True)
+        return _apply_bg_tint(base, bg_tint, dark=True)
     if theme == "light":
-        return _apply_accent(COLORS, accent_color, dark=False)
+        base = _apply_accent(COLORS, accent_color, dark=False)
+        return _apply_bg_tint(base, bg_tint, dark=False)
     # system
     if _is_system_dark():
-        return _apply_accent(COLORS_DARK, accent_color, dark=True)
-    return _apply_accent(COLORS, accent_color, dark=False)
+        base = _apply_accent(COLORS_DARK, accent_color, dark=True)
+        return _apply_bg_tint(base, bg_tint, dark=True)
+    base = _apply_accent(COLORS, accent_color, dark=False)
+    return _apply_bg_tint(base, bg_tint, dark=False)
 
 
 _ACTIVE_THEME = "system"
 _ACTIVE_ACCENT: Optional[str] = None
 _ACTIVE_BREAK_COLOR: str = "#739E73"
+_ACTIVE_BG_TINT: Optional[str] = None
 
 
-def set_active_theme(theme: str, accent_color: Optional[str] = None, break_color: Optional[str] = None) -> None:
+def set_active_theme(theme: str, accent_color: Optional[str] = None, break_color: Optional[str] = None, bg_tint: Optional[str] = None) -> None:
     """Track the currently applied theme so palette helpers stay in sync."""
-    global _ACTIVE_THEME, _ACTIVE_ACCENT, _ACTIVE_BREAK_COLOR
+    global _ACTIVE_THEME, _ACTIVE_ACCENT, _ACTIVE_BREAK_COLOR, _ACTIVE_BG_TINT
     _ACTIVE_THEME = theme if theme in ("system", "light", "dark") else "system"
     _ACTIVE_ACCENT = _normalize_hex(accent_color)
     _ACTIVE_BREAK_COLOR = break_color or "#739E73"
+    _ACTIVE_BG_TINT = _normalize_hex(bg_tint)
 
 
 def active_colors() -> dict:
     """Return the colors palette for the currently applied theme + accent."""
-    return resolve_colors(_ACTIVE_THEME, _ACTIVE_ACCENT)
+    return resolve_colors(_ACTIVE_THEME, _ACTIVE_ACCENT, _ACTIVE_BG_TINT)
 
 
 def active_break_color() -> str:
@@ -175,9 +206,9 @@ def is_dark_active() -> bool:
     return _is_system_dark()
 
 
-def addon_qss(theme: str = "system", accent_color: Optional[str] = None, break_color: Optional[str] = None) -> str:
-    c = resolve_colors(theme, accent_color)
-    set_active_theme(theme, accent_color, break_color)
+def addon_qss(theme: str = "system", accent_color: Optional[str] = None, break_color: Optional[str] = None, bg_tint: Optional[str] = None) -> str:
+    c = resolve_colors(theme, accent_color, bg_tint)
+    set_active_theme(theme, accent_color, break_color, bg_tint)
     return f"""
     QWidget {{
         color: {c["text"]};

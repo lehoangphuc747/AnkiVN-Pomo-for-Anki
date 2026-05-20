@@ -91,8 +91,17 @@ class SettingsDialog(QDialog):
         self.break_swatch.setToolTip(tr("settings.break_color_tooltip"))
         self.break_swatch.clicked.connect(self._open_break_picker)
 
+        # Background tint swatch.
+        self._bg_tint_value: str = (settings.bg_tint or "").upper()
+        self.bg_tint_swatch = QPushButton()
+        self.bg_tint_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.bg_tint_swatch.setFixedSize(QSize(34, 26))
+        self.bg_tint_swatch.setToolTip(tr("settings.bg_tint_tooltip"))
+        self.bg_tint_swatch.clicked.connect(self._open_bg_tint_picker)
+
         self._refresh_accent_swatch()
         self._refresh_break_swatch()
+        self._refresh_bg_tint_swatch()
 
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
@@ -141,6 +150,8 @@ class SettingsDialog(QDialog):
         accent_row.addWidget(self.accent_swatch)
         accent_row.addSpacing(4)
         accent_row.addWidget(self.break_swatch)
+        accent_row.addSpacing(4)
+        accent_row.addWidget(self.bg_tint_swatch)
         root.addLayout(accent_row)
 
         self.sidebar_side_row = QHBoxLayout()
@@ -212,6 +223,7 @@ class SettingsDialog(QDialog):
             theme=str(self.theme_switcher.current_value() or previous.theme),
             accent_color=self._accent_value,
             break_color=self._break_color_value,
+            bg_tint=self._bg_tint_value,
             color_preset=self._current_preset_id,
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
@@ -232,8 +244,10 @@ class SettingsDialog(QDialog):
             if preset:
                 self._accent_value = preset.accent.upper()
                 self._break_color_value = ""  # Use preset break color
+                self._bg_tint_value = ""  # Use preset bg tint
         self._refresh_accent_swatch()
         self._refresh_break_swatch()
+        self._refresh_bg_tint_swatch()
 
     def _open_accent_picker(self) -> None:
         current = QColor(self._accent_value) if self._accent_value else QColor(self._effective_default_accent())
@@ -313,6 +327,45 @@ class SettingsDialog(QDialog):
             if preset:
                 return preset.break_color
         return "#739E73"
+
+    def _open_bg_tint_picker(self) -> None:
+        current_color = self._bg_tint_value or self._effective_bg_tint_from_preset() or "#F8F7F3"
+        current = QColor(current_color)
+        if not current.isValid():
+            current = QColor("#F8F7F3")
+        chosen = QColorDialog.getColor(current, self, tr("settings.bg_tint_pick_title"))
+        if not chosen.isValid():
+            return
+        self._bg_tint_value = chosen.name().upper()
+        self._switch_to_custom()
+        self._refresh_bg_tint_swatch()
+
+    def _refresh_bg_tint_swatch(self) -> None:
+        color = self._bg_tint_value or self._effective_bg_tint_from_preset() or "#F8F7F3"
+        self.bg_tint_swatch.setText("")
+        self.bg_tint_swatch.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {color};
+                border: 1px solid rgba(0, 0, 0, 0.18);
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                border: 1px solid rgba(0, 0, 0, 0.42);
+            }}
+            """
+        )
+        if self._bg_tint_value:
+            self.bg_tint_swatch.setToolTip(tr("settings.bg_tint_tooltip_value", value=self._bg_tint_value))
+        else:
+            self.bg_tint_swatch.setToolTip(tr("settings.bg_tint_tooltip"))
+
+    def _effective_bg_tint_from_preset(self) -> str:
+        if self._current_preset_id and self._current_preset_id != CUSTOM_PRESET_ID:
+            preset = get_preset(self._current_preset_id)
+            if preset:
+                return preset.bg_tint
+        return ""
 
     def _effective_default_accent(self) -> str:
         theme_value = self.theme_switcher.current_value()
