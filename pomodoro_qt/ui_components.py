@@ -383,7 +383,7 @@ class SidebarMetricButton(QPushButton):
         layout.addWidget(self.label, 1)
 
         self.value = QLabel(value)
-        self.value.setFixedWidth(66)
+        self.value.setMinimumWidth(66)
         self.value.setMinimumHeight(20)
         self.value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.value.setStyleSheet(
