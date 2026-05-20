@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, Qt
+from aqt.qt import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QSize, QVBoxLayout, Qt
 
 from .i18n import format_number, tr
 from .metric_popover import MetricPopover
-from .experience_metric import ExperienceMetrics, XP_PER_UNIQUE_CARD, unique_cards_experience
+from .experience_metric import ExperienceMetrics
 from .style import COLORS
+from .popover_shell import _clear_layout
 
 
 ALIGN_CENTER = Qt.AlignmentFlag.AlignCenter
@@ -21,10 +22,10 @@ class ExperiencePopover(MetricPopover):
 
     def refresh_data(self, metrics: ExperienceMetrics) -> None:
         self.clear_content()
+        self._help_sections = _help_sections(metrics)
+        self._help_title = tr("help.section_label")
         self._add_hero(metrics)
         self._add_progress_card(metrics)
-        self._add_stats(metrics)
-        self._add_xp_sources(metrics)
         self._add_breakdown(metrics)
 
     def _add_hero(self, metrics: ExperienceMetrics) -> None:
@@ -62,7 +63,38 @@ class ExperiencePopover(MetricPopover):
         eyebrow.setStyleSheet(
             f"color: {COLORS['red']}; font-size: 10px; font-weight: 800; letter-spacing: 1px;"
         )
-        title = QLabel(f"{tr('metric.level')} {format_number(metrics.level)}")
+
+        help_button = QPushButton("?")
+        help_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        help_button.setFixedSize(QSize(20, 20))
+        help_button.setCheckable(True)
+        help_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {COLORS['badge']};
+                color: {COLORS['muted']};
+                border: 0;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 0;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['soft']};
+                color: {COLORS['red']};
+            }}
+            QPushButton:checked {{
+                background: {COLORS['red']};
+                color: white;
+            }}
+            """
+        )
+        help_button.toggled.connect(self._on_help_toggled)
+        self._help_button = help_button
+        title = QLabel(
+            f"{tr('metric.level')} {format_number(metrics.level)} · "
+            f"{format_number(metrics.experience)} {tr('common.xp')}"
+        )
         title.setStyleSheet(f"color: {COLORS['text']}; font-size: 18px; font-weight: 700;")
         subtitle = QLabel(
             tr(
@@ -78,6 +110,7 @@ class ExperiencePopover(MetricPopover):
 
         layout.addWidget(badge)
         layout.addLayout(copy, 1)
+        layout.addWidget(help_button, 0, Qt.AlignmentFlag.AlignTop)
         self.content_layout.addWidget(hero)
         self.content_layout.addSpacing(12)
 
@@ -141,39 +174,6 @@ class ExperiencePopover(MetricPopover):
         self.content_layout.addWidget(card)
         self.content_layout.addSpacing(12)
 
-    def _add_stats(self, metrics: ExperienceMetrics) -> None:
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(8)
-        grid.addWidget(self._stat_tile(tr("metric.streak"), tr("metric.days", count=format_number(metrics.streak_days))), 0, 0)
-        grid.addWidget(self._stat_tile(tr("metric.streak_xp"), f"{format_number(metrics.experience)} {tr('common.xp')}"), 0, 1)
-        self.content_layout.addLayout(grid)
-        self.content_layout.addSpacing(14)
-
-    def _add_xp_sources(self, metrics: ExperienceMetrics) -> None:
-        unique_cards = max(0, int(metrics.unique_cards))
-        cards_xp = unique_cards_experience(unique_cards)
-
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(8)
-        grid.addWidget(
-            self._xp_source_tile(
-                tr("experience.unique_cards_xp"),
-                cards_xp,
-                tr(
-                    "experience.unique_cards_xp_detail",
-                    cards=format_number(unique_cards),
-                    xp=format_number(XP_PER_UNIQUE_CARD),
-                ),
-                COLORS["text"],
-            ),
-            0,
-            0,
-        )
-        self.content_layout.addLayout(grid)
-        self.content_layout.addSpacing(14)
-
     def _add_breakdown(self, metrics: ExperienceMetrics) -> None:
         title = QLabel(tr("experience.breakdown"))
         title.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px; font-weight: 700;")
@@ -216,58 +216,62 @@ class ExperiencePopover(MetricPopover):
         layout.addWidget(count_label)
         return row
 
-    def _stat_tile(self, label_text: str, value_text: str) -> QFrame:
-        tile = QFrame()
-        tile.setStyleSheet(
-            f"""
-            QFrame {{
-                background: #FFFFFF;
-                border: 0;
-                border-radius: 12px;
-            }}
-            """
-        )
-        layout = QVBoxLayout(tile)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(3)
-        label = QLabel(label_text)
-        label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 10px; font-weight: 800;")
-        value = QLabel(value_text)
-        value.setStyleSheet(f"color: {COLORS['text']}; font-size: 15px; font-weight: 700;")
-        layout.addWidget(label)
-        layout.addWidget(value)
-        return tile
+    def _on_help_toggled(self, checked: bool) -> None:
+        if checked:
+            self._render_help_panel()
+        self.set_help_visible(checked)
 
-    def _xp_source_tile(self, label_text: str, xp: int, detail_text: str, accent: str) -> QFrame:
-        tile = QFrame()
-        tile.setStyleSheet(
-            """
-            QFrame {
-                background: #FAF9F6;
-                border: 0;
-                border-radius: 12px;
-            }
-            """
-        )
-        layout = QVBoxLayout(tile)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(4)
-        label = QLabel(label_text)
-        label.setWordWrap(True)
-        label.setStyleSheet(f"color: {COLORS['muted']}; font-size: 10px; font-weight: 800;")
-        value = QLabel(f"+{format_number(xp)} {tr('common.xp')}")
-        value.setStyleSheet(f"color: {accent}; font-size: 16px; font-weight: 760;")
-        detail = QLabel(detail_text)
-        detail.setWordWrap(True)
-        detail.setStyleSheet(f"color: {COLORS['muted_light']}; font-size: 10px; font-weight: 650;")
-        layout.addWidget(label)
-        layout.addWidget(value)
-        layout.addWidget(detail)
-        return tile
+    def _render_help_panel(self) -> None:
+        from .metric_popover import RICH_TEXT
+        _clear_layout(self.help_layout)
+        if self._help_title:
+            title = QLabel(self._help_title)
+            title.setStyleSheet(
+                f"color: {COLORS['muted']}; font-size: 11px; font-weight: 800; letter-spacing: 1px;"
+            )
+            self.help_layout.addWidget(title)
+            self.help_layout.addSpacing(4)
+        for index, (section_title, section_body) in enumerate(self._help_sections):
+            heading = QLabel(section_title)
+            heading.setStyleSheet("color: #3E3C38; font-size: 13px; font-weight: 700;")
+            heading.setWordWrap(True)
+            body = QLabel(section_body)
+            body.setWordWrap(True)
+            body.setTextFormat(RICH_TEXT)
+            body.setStyleSheet(
+                f"color: {COLORS['text']}; font-size: 11px; font-weight: 500; line-height: 1.45;"
+            )
+            self.help_layout.addWidget(heading)
+            self.help_layout.addSpacing(2)
+            self.help_layout.addWidget(body)
+            if index < len(self._help_sections) - 1:
+                self.help_layout.addSpacing(10)
+        self.help_layout.addStretch(1)
 
 
 def make_experience_popover(metrics: ExperienceMetrics) -> ExperiencePopover:
     return ExperiencePopover(metrics)
+
+
+def _help_sections(metrics: ExperienceMetrics) -> list[tuple[str, str]]:
+    return [
+        (
+            tr("experience.help_what_title"),
+            tr(
+                "experience.help_what_body",
+                xp=format_number(metrics.experience),
+                level=format_number(metrics.level),
+            ),
+        ),
+        (
+            tr("experience.help_how_title"),
+            tr("experience.help_how_body"),
+        ),
+        (
+            tr("experience.help_note_title"),
+            tr("experience.help_note_body"),
+        ),
+    ]
 
 
 __all__ = ["ExperiencePopover", "make_experience_popover"]

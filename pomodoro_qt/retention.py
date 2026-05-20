@@ -24,6 +24,8 @@ class RetentionPopover(MetricPopover):
             tr("retention.subtitle"),
             COLORS["green"],
             BRAIN_ICON_PATH,
+            help_sections=_help_sections(metrics),
+            help_title=tr("help.section_label"),
         )
         self.add_progress(
             metrics.today_retention,
@@ -62,6 +64,29 @@ def _footer_text(metrics: RetentionMetrics) -> str:
     if metrics.today_retention >= 90:
         return tr("retention.footer_stable")
     return tr("retention.footer_active")
+
+
+def _help_sections(metrics: RetentionMetrics) -> list[tuple[str, str]]:
+    correct = metrics.good_cards + metrics.easy_cards + metrics.hard_cards
+    return [
+        (
+            tr("retention.help_what_title"),
+            tr("retention.help_what_body", retention=format_number(metrics.today_retention)),
+        ),
+        (
+            tr("retention.help_how_title"),
+            tr(
+                "retention.help_how_body",
+                correct=format_number(correct),
+                total=format_number(metrics.today_cards),
+                again=format_number(metrics.again_cards),
+            ),
+        ),
+        (
+            tr("retention.help_note_title"),
+            tr("retention.help_note_body"),
+        ),
+    ]
 
 
 __all__ = ["RetentionPopover", "make_retention_popover"]

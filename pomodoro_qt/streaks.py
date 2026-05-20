@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, Qt
+from aqt.qt import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QSize, QVBoxLayout, Qt
 
 from .i18n import format_number, tr
-from .popover_shell import PopoverShell
+from .popover_shell import PopoverShell, _clear_layout
 from .streak_metric import StreakMetrics
 from .style import COLORS
 from .ui_components import FIRE_ICON_PATH, make_icon_label
@@ -26,6 +26,8 @@ class StreakPopover(PopoverShell):
     def refresh_data(self, metrics: StreakMetrics) -> None:
         self.clear_content()
         self.metrics = metrics
+        self._help_sections = _help_sections(metrics)
+        self._help_title = tr("help.section_label")
         root = self.content_layout
 
         self.title_label = QLabel()
@@ -101,8 +103,37 @@ class StreakPopover(PopoverShell):
         copy.addWidget(self.status_label)
         copy.addWidget(self.cutoff_label)
 
+        help_button = QPushButton("?")
+        help_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        help_button.setFixedSize(QSize(20, 20))
+        help_button.setCheckable(True)
+        help_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {COLORS['badge']};
+                color: {COLORS['muted']};
+                border: 0;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 0;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['soft']};
+                color: {COLORS['red']};
+            }}
+            QPushButton:checked {{
+                background: {COLORS['red']};
+                color: white;
+            }}
+            """
+        )
+        help_button.toggled.connect(self._on_help_toggled)
+        self._help_button = help_button
+
         layout.addWidget(icon)
         layout.addLayout(copy, 1)
+        layout.addWidget(help_button, 0, Qt.AlignmentFlag.AlignTop)
         return hero
 
     def _make_today_line(self) -> QFrame:
@@ -155,6 +186,38 @@ class StreakPopover(PopoverShell):
         layout.addWidget(value)
         return tile
 
+    def _on_help_toggled(self, checked: bool) -> None:
+        if checked:
+            self._render_help_panel()
+        self.set_help_visible(checked)
+
+    def _render_help_panel(self) -> None:
+        from .metric_popover import RICH_TEXT
+        _clear_layout(self.help_layout)
+        if self._help_title:
+            title = QLabel(self._help_title)
+            title.setStyleSheet(
+                f"color: {COLORS['muted']}; font-size: 11px; font-weight: 800; letter-spacing: 1px;"
+            )
+            self.help_layout.addWidget(title)
+            self.help_layout.addSpacing(4)
+        for index, (section_title, section_body) in enumerate(self._help_sections):
+            heading = QLabel(section_title)
+            heading.setStyleSheet("color: #3E3C38; font-size: 13px; font-weight: 700;")
+            heading.setWordWrap(True)
+            body = QLabel(section_body)
+            body.setWordWrap(True)
+            body.setTextFormat(RICH_TEXT)
+            body.setStyleSheet(
+                f"color: {COLORS['text']}; font-size: 11px; font-weight: 500; line-height: 1.45;"
+            )
+            self.help_layout.addWidget(heading)
+            self.help_layout.addSpacing(2)
+            self.help_layout.addWidget(body)
+            if index < len(self._help_sections) - 1:
+                self.help_layout.addSpacing(10)
+        self.help_layout.addStretch(1)
+
 
 def _status_text(metrics: StreakMetrics) -> str:
     if metrics.today_reviews > 0:
@@ -171,6 +234,23 @@ def _cutoff_text(metrics: StreakMetrics) -> str:
         minutes = (metrics.seconds_until_cutoff % 3600) // 60
         return tr("streak.cutoff_remaining", hours=format_number(hours), minutes=format_number(minutes))
     return tr("streak.cutoff_need", time=cutoff_time)
+
+
+def _help_sections(metrics: StreakMetrics) -> list[tuple[str, str]]:
+    return [
+        (
+            tr("streak.help_what_title"),
+            tr("streak.help_what_body", days=format_number(metrics.days)),
+        ),
+        (
+            tr("streak.help_how_title"),
+            tr("streak.help_how_body"),
+        ),
+        (
+            tr("streak.help_note_title"),
+            tr("streak.help_note_body"),
+        ),
+    ]
 
 
 def make_streak_popover(metrics: StreakMetrics) -> StreakPopover:
