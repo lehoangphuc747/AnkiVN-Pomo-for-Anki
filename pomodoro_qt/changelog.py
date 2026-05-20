@@ -13,11 +13,49 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.1.12"
+CURRENT_VERSION = "1.2.0"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.2.0",
+        "date": "2026-05-20",
+        "vi": {
+            "Tính năng mới": [
+                "Overtime mode: bấm 'Tiếp tục học' khi Pomodoro hết giờ → timer đếm lên (+MM:SS) cho đến khi bạn tự dừng.",
+                "Nút 'Pomo mới': bắt đầu Pomodoro mới ngay (thay vì Keep going = pomo mới như trước).",
+                "Bấm Stop trong overtime → mở lại dialog chọn Pomo mới / Nghỉ / Kết thúc.",
+                "Âm thanh cue: phát tiếng khi bắt đầu và kết thúc Pomodoro / Break.",
+                "Tuỳ chỉnh màu nhấn (accent color) trong Cài đặt — chọn màu bất kỳ cho timer, nút chính.",
+                "Nút (?) trong mỗi popover metric: mở rộng sang ngang hiện giải thích chi tiết + số liệu live.",
+            ],
+            "Cải thiện": [
+                "Tooltip metric khi hover: giải thích ngắn gọn ý nghĩa từng chỉ số.",
+                "Đổi tiêu đề dialog hoàn thành: 'Hoàn thành Pomodoro!' (thay vì 'Hoàn thành PomodoroVN!').",
+            ],
+            "Sửa lỗi": [
+                "Sidebar: số Cards Studied lớn (vd 208) không còn bị cắt hiển thị thành '08'.",
+            ],
+        },
+        "en": {
+            "New features": [
+                "Overtime mode: press 'Keep going' when Pomodoro ends → timer counts up (+MM:SS) until you stop.",
+                "New 'New Pomo' button: start a fresh Pomodoro immediately (Keep going no longer starts a new pomo).",
+                "Pressing Stop during overtime opens the done dialog (New Pomo / Take break / End).",
+                "Cue sounds: plays audio when a Pomodoro or break starts and ends.",
+                "Custom accent color in Settings — pick any color for the timer ring and primary buttons.",
+                "(?) button in each metric popover: expands horizontally to show detailed explanations with live data.",
+            ],
+            "Improvements": [
+                "Metric tooltips on hover: brief explanation of what each metric means.",
+                "Renamed done dialog title: 'Pomodoro complete!' (was 'PomodoroVN done!').",
+            ],
+            "Fixes": [
+                "Sidebar: large Cards Studied numbers (e.g. 208) no longer get clipped to '08'.",
+            ],
+        },
+    },
     {
         "version": "1.1.12",
         "date": "2026-05-17",
