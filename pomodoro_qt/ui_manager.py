@@ -60,6 +60,7 @@ class UIManager:
         self._visible_metric_anchor: Optional[QWidget] = None
         self._theme: str = "system"
         self._accent_color: str = ""
+        self._break_color: str = "#739E73"
 
     def build(
         self,
@@ -85,7 +86,8 @@ class UIManager:
         self.audio_popover.restore_state(audio_state)
         self.metric_popovers = self._make_metric_popovers()
         self._theme = getattr(settings, "theme", "system")
-        self._accent_color = getattr(settings, "accent_color", "") or ""
+        self._accent_color = getattr(settings, "effective_accent", "") or ""
+        self._break_color = getattr(settings, "effective_break_color", "#739E73") or "#739E73"
 
         for widget in [
             self.under_widget,
@@ -93,7 +95,7 @@ class UIManager:
             self.audio_popover,
             *self.metric_popovers.values(),
         ]:
-            widget.setStyleSheet(addon_qss(self._theme, self._accent_color))
+            widget.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color))
 
         self.under_dock = self._make_dock("PomodoroUnderToolbar", self.under_widget, TOP_DOCK)
         sidebar_area = RIGHT_DOCK if settings.sidebar_side == SIDEBAR_RIGHT else LEFT_DOCK
@@ -285,7 +287,7 @@ class UIManager:
         dock.setFeatures(NO_DOCK_FEATURES)
         dock.setAllowedAreas(LEFT_DOCK | RIGHT_DOCK | TOP_DOCK)
         dock.setTitleBarWidget(QWidget(dock))
-        dock.setStyleSheet(addon_qss(self._theme, self._accent_color))
+        dock.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color))
         self.mw.addDockWidget(area, dock)
         dock.hide()
         return dock
@@ -322,7 +324,7 @@ class UIManager:
 
     def _refresh_metric_popover(self, name: str, popover: object) -> None:
         self._refresh_metric_popover_callback(name, popover)
-        popover.setStyleSheet(addon_qss(self._theme, self._accent_color))
+        popover.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color))
 
     def _toggle_audio(self, anchor: QWidget) -> None:
         if self.audio_popover:
@@ -385,7 +387,7 @@ class UIManager:
             return
         if self.corner_widget.parentWidget() is not parent:
             self.corner_widget.setParent(parent)
-            self.corner_widget.setStyleSheet(addon_qss(self._theme, self._accent_color))
+            self.corner_widget.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color))
         self.corner_widget.set_saved_position(settings.corner_left, settings.corner_top)
         self.corner_widget.raise_()
 

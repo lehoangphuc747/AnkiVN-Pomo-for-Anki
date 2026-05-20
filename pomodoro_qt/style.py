@@ -145,18 +145,25 @@ def resolve_colors(theme: str = "system", accent_color: Optional[str] = None) ->
 
 _ACTIVE_THEME = "system"
 _ACTIVE_ACCENT: Optional[str] = None
+_ACTIVE_BREAK_COLOR: str = "#739E73"
 
 
-def set_active_theme(theme: str, accent_color: Optional[str] = None) -> None:
+def set_active_theme(theme: str, accent_color: Optional[str] = None, break_color: Optional[str] = None) -> None:
     """Track the currently applied theme so palette helpers stay in sync."""
-    global _ACTIVE_THEME, _ACTIVE_ACCENT
+    global _ACTIVE_THEME, _ACTIVE_ACCENT, _ACTIVE_BREAK_COLOR
     _ACTIVE_THEME = theme if theme in ("system", "light", "dark") else "system"
     _ACTIVE_ACCENT = _normalize_hex(accent_color)
+    _ACTIVE_BREAK_COLOR = break_color or "#739E73"
 
 
 def active_colors() -> dict:
     """Return the colors palette for the currently applied theme + accent."""
     return resolve_colors(_ACTIVE_THEME, _ACTIVE_ACCENT)
+
+
+def active_break_color() -> str:
+    """Return the break accent color currently in effect."""
+    return _ACTIVE_BREAK_COLOR
 
 
 def is_dark_active() -> bool:
@@ -168,9 +175,9 @@ def is_dark_active() -> bool:
     return _is_system_dark()
 
 
-def addon_qss(theme: str = "system", accent_color: Optional[str] = None) -> str:
+def addon_qss(theme: str = "system", accent_color: Optional[str] = None, break_color: Optional[str] = None) -> str:
     c = resolve_colors(theme, accent_color)
-    set_active_theme(theme, accent_color)
+    set_active_theme(theme, accent_color, break_color)
     return f"""
     QWidget {{
         color: {c["text"]};

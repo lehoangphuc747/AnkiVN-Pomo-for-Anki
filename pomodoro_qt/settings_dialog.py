@@ -19,6 +19,7 @@ from aqt.qt import (
     pyqtSignal,
 )
 
+from .color_presets import CUSTOM_PRESET_ID, DEFAULT_PRESET_ID, PRESETS, get_preset
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, THEME_DARK, THEME_LIGHT, THEME_SYSTEM, PomodoroSettings
 from .style import DEFAULT_ACCENT_DARK, DEFAULT_ACCENT_LIGHT
@@ -62,15 +63,25 @@ class SettingsDialog(QDialog):
         self.theme_switcher.add_option(tr("settings.theme_dark"), THEME_DARK)
         self.theme_switcher.set_current_value(settings.theme)
 
-        # Accent color picker.
+        # Color preset dropdown + accent swatch.
+        self._current_preset_id: str = settings.color_preset or DEFAULT_PRESET_ID
         self._accent_value: str = (settings.accent_color or "").upper()
+        self.preset_combo = QComboBox()
+        for preset in PRESETS:
+            self.preset_combo.addItem(tr(preset.label_key), preset.id)
+        self.preset_combo.addItem(tr("preset.custom"), CUSTOM_PRESET_ID)
+        preset_index = self.preset_combo.findData(self._current_preset_id)
+        if preset_index >= 0:
+            self.preset_combo.setCurrentIndex(preset_index)
+        else:
+            self.preset_combo.setCurrentIndex(0)
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_changed)
+
         self.accent_swatch = QPushButton()
         self.accent_swatch.setCursor(Qt.CursorShape.PointingHandCursor)
         self.accent_swatch.setFixedSize(QSize(34, 26))
         self.accent_swatch.setToolTip(tr("settings.accent_pick_tooltip"))
         self.accent_swatch.clicked.connect(self._open_accent_picker)
-        self.accent_reset_button = make_button(tr("settings.accent_reset"), "secondary", tr("settings.accent_reset_tooltip"))
-        self.accent_reset_button.clicked.connect(self._reset_accent)
         self._refresh_accent_swatch()
 
         self.pomodoro_spin = QSpinBox()
@@ -115,9 +126,9 @@ class SettingsDialog(QDialog):
         accent_row = QHBoxLayout()
         accent_row.addWidget(make_label(tr("settings.accent_color")))
         accent_row.addStretch(1)
-        accent_row.addWidget(self.accent_swatch)
+        accent_row.addWidget(self.preset_combo)
         accent_row.addSpacing(6)
-        accent_row.addWidget(self.accent_reset_button)
+        accent_row.addWidget(self.accent_swatch)
         root.addLayout(accent_row)
 
         self.sidebar_side_row = QHBoxLayout()
@@ -188,6 +199,7 @@ class SettingsDialog(QDialog):
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
             theme=str(self.theme_switcher.current_value() or previous.theme),
             accent_color=self._accent_value,
+            color_preset=self._current_preset_id,
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
             auto_start_break=bool(self.auto_break.isChecked()),
@@ -197,6 +209,17 @@ class SettingsDialog(QDialog):
             corner_top=previous.corner_top,
         )
 
+    def _on_preset_changed(self, _index: int) -> None:
+        preset_id = self.preset_combo.currentData()
+        if not preset_id:
+            return
+        self._current_preset_id = str(preset_id)
+        if self._current_preset_id != CUSTOM_PRESET_ID:
+            preset = get_preset(self._current_preset_id)
+            if preset:
+                self._accent_value = preset.accent.upper()
+        self._refresh_accent_swatch()
+
     def _open_accent_picker(self) -> None:
         current = QColor(self._accent_value) if self._accent_value else QColor(self._effective_default_accent())
         if not current.isValid():
@@ -205,10 +228,13 @@ class SettingsDialog(QDialog):
         if not chosen.isValid():
             return
         self._accent_value = chosen.name().upper()
-        self._refresh_accent_swatch()
-
-    def _reset_accent(self) -> None:
-        self._accent_value = ""
+        # Switch to custom preset when user picks a custom color.
+        self._current_preset_id = CUSTOM_PRESET_ID
+        custom_index = self.preset_combo.findData(CUSTOM_PRESET_ID)
+        if custom_index >= 0:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(custom_index)
+            self.preset_combo.blockSignals(False)
         self._refresh_accent_swatch()
 
     def _refresh_accent_swatch(self) -> None:
