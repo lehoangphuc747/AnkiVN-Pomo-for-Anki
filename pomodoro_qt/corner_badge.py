@@ -80,6 +80,47 @@ class HtmlCornerBadgeWidget(QFrame):
             return
         self._saved_position = QPoint(left, top)
 
+    def set_background_image(self, path: str, opacity: int, blur: int, *, dark: bool = False) -> None:
+        """Inject a background image overlay into the corner badge HTML.
+
+        The image is encoded as a base64 data URI so it works inside the local
+        HTML page without a custom URL scheme. Opacity and blur are applied via
+        inline CSS so the JS side can keep using ``--anki-*`` variables.
+        """
+        opacity_pct = max(0, min(100, int(opacity))) / 100.0
+        blur_px = max(0, min(60, int(blur)))
+        path_str = str(path or "").strip()
+        data_uri = ""
+        if path_str:
+            try:
+                from base64 import b64encode
+
+                data = Path(path_str).read_bytes()
+                mime = "image/jpeg"
+                lower = path_str.lower()
+                if lower.endswith(".png"):
+                    mime = "image/png"
+                elif lower.endswith(".webp"):
+                    mime = "image/webp"
+                elif lower.endswith(".gif"):
+                    mime = "image/gif"
+                data_uri = f"data:{mime};base64,{b64encode(data).decode('ascii')}"
+            except Exception:
+                data_uri = ""
+        overlay = "rgba(0,0,0,0.25)" if dark else "rgba(255,255,255,0.35)"
+        # Pass values to JS so it can update CSS at runtime.
+        js = (
+            "(function(){"
+            "if (window.PomodoroBg && typeof window.PomodoroBg.apply === 'function') {"
+            f"window.PomodoroBg.apply({json.dumps(data_uri)}, {opacity_pct}, {blur_px}, {json.dumps(overlay)});"
+            "}"
+            "})();"
+        )
+        try:
+            self.web.page().runJavaScript(js)
+        except Exception:
+            pass
+
     def cleanup(self) -> None:
         """Tear down the embedded AnkiWebView so global hooks no longer reference it."""
         web = getattr(self, "web", None)

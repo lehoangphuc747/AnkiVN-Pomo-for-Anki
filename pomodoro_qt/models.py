@@ -32,6 +32,9 @@ class PomodoroSettings:
     accent_color: str = ""
     break_color: str = ""
     bg_tint: str = ""
+    bg_image_path: str = ""
+    bg_image_opacity: int = 18
+    bg_image_blur: int = 8
     color_preset: str = "classic"
     pomodoro_minutes: int = 25
     break_minutes: int = 5
@@ -40,6 +43,8 @@ class PomodoroSettings:
     language: str = "vi"
     corner_left: Optional[int] = None
     corner_top: Optional[int] = None
+    dialog_width: Optional[int] = None
+    dialog_height: Optional[int] = None
 
     @classmethod
     def from_config(cls, config: dict) -> "PomodoroSettings":
@@ -55,6 +60,9 @@ class PomodoroSettings:
             accent_color=_normalize_accent(config.get("accent_color")),
             break_color=_normalize_accent(config.get("break_color")),
             bg_tint=_normalize_accent(config.get("bg_tint")),
+            bg_image_path=str(config.get("bg_image_path") or ""),
+            bg_image_opacity=_clamp_int(config.get("bg_image_opacity"), 18, 0, 100),
+            bg_image_blur=_clamp_int(config.get("bg_image_blur"), 8, 0, 60),
             color_preset=str(config.get("color_preset") or "classic").strip() or "classic",
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
@@ -63,6 +71,8 @@ class PomodoroSettings:
             language=language,
             corner_left=_optional_int(config.get("corner_left")),
             corner_top=_optional_int(config.get("corner_top")),
+            dialog_width=_clamp_optional_int(config.get("dialog_width"), 520, 1600),
+            dialog_height=_clamp_optional_int(config.get("dialog_height"), 400, 1200),
         )
 
     def to_config(self) -> dict:
@@ -73,6 +83,9 @@ class PomodoroSettings:
             "accent_color": self.accent_color,
             "break_color": self.break_color,
             "bg_tint": self.bg_tint,
+            "bg_image_path": self.bg_image_path,
+            "bg_image_opacity": self.bg_image_opacity,
+            "bg_image_blur": self.bg_image_blur,
             "color_preset": self.color_preset,
             "pomodoro_minutes": self.pomodoro_minutes,
             "break_minutes": self.break_minutes,
@@ -81,6 +94,8 @@ class PomodoroSettings:
             "language": self.language,
             "corner_left": self.corner_left,
             "corner_top": self.corner_top,
+            "dialog_width": self.dialog_width,
+            "dialog_height": self.dialog_height,
         }
 
     @property
@@ -411,6 +426,18 @@ def _optional_int(value: object) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _clamp_optional_int(value: object, minimum: int, maximum: int) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    return max(minimum, min(maximum, v))
 
 
 def _normalize_accent(value: object) -> str:

@@ -44,7 +44,7 @@ def day_key(day_start: int) -> str:
 
 
 def seconds_until_cutoff(today_start: int, rollover_seconds: int) -> int:
-    next_cutoff = int(today_start) + 86400 + max(0, int(rollover_seconds))
+    next_cutoff = int(today_start) + 86400
     now = int(datetime.now().timestamp())
     while next_cutoff <= now:
         next_cutoff += 86400

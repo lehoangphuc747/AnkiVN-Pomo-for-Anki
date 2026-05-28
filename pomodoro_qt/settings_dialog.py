@@ -9,9 +9,11 @@ from aqt.qt import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QHBoxLayout,
     QPushButton,
     QSize,
+    QSlider,
     QSpinBox,
     Qt,
     QVBoxLayout,
@@ -38,7 +40,11 @@ class SettingsDialog(QDialog):
         self.setWindowTitle(tr("settings.title"))
         set_addon_window_icon(self)
         self.setModal(True)
-        self.setMinimumWidth(420)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
+        self.setMinimumSize(420, 400)
+        saved_w = settings.dialog_width or 520
+        saved_h = settings.dialog_height or 680
+        self.resize(saved_w, saved_h)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
@@ -103,6 +109,32 @@ class SettingsDialog(QDialog):
         self._refresh_break_swatch()
         self._refresh_bg_tint_swatch()
 
+        # Background image controls.
+        self._bg_image_path: str = str(getattr(settings, "bg_image_path", "") or "")
+        self.bg_image_button = make_button(tr("settings.bg_image_choose"), "secondary", tr("settings.bg_image_choose_tooltip"))
+        self.bg_image_button.clicked.connect(self._choose_bg_image)
+        self.bg_image_clear_button = make_button(tr("settings.bg_image_clear"), "secondary", tr("settings.bg_image_clear_tooltip"))
+        self.bg_image_clear_button.clicked.connect(self._clear_bg_image)
+        self.bg_image_label = make_label(self._format_bg_image_label(), "muted")
+
+        self.bg_opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_opacity_slider.setRange(0, 60)
+        self.bg_opacity_slider.setValue(int(getattr(settings, "bg_image_opacity", 18) or 18))
+        self.bg_opacity_slider.setMinimumWidth(120)
+        self.bg_opacity_value_label = make_label(self._format_percent(self.bg_opacity_slider.value()), "muted")
+        self.bg_opacity_slider.valueChanged.connect(
+            lambda v: self.bg_opacity_value_label.setText(self._format_percent(v))
+        )
+
+        self.bg_blur_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_blur_slider.setRange(0, 30)
+        self.bg_blur_slider.setValue(int(getattr(settings, "bg_image_blur", 8) or 0))
+        self.bg_blur_slider.setMinimumWidth(120)
+        self.bg_blur_value_label = make_label(f"{self.bg_blur_slider.value()}px", "muted")
+        self.bg_blur_slider.valueChanged.connect(
+            lambda v: self.bg_blur_value_label.setText(f"{v}px")
+        )
+
         self.pomodoro_spin = QSpinBox()
         self.pomodoro_spin.setRange(1, 180)
         self.pomodoro_spin.setValue(settings.pomodoro_minutes)
@@ -153,6 +185,34 @@ class SettingsDialog(QDialog):
         accent_row.addSpacing(4)
         accent_row.addWidget(self.bg_tint_swatch)
         root.addLayout(accent_row)
+
+        # Background image row 1: choose / clear + label
+        bg_image_row = QHBoxLayout()
+        bg_image_row.addWidget(make_label(tr("settings.bg_image")))
+        bg_image_row.addStretch(1)
+        bg_image_row.addWidget(self.bg_image_button)
+        bg_image_row.addSpacing(4)
+        bg_image_row.addWidget(self.bg_image_clear_button)
+        root.addLayout(bg_image_row)
+
+        bg_image_label_row = QHBoxLayout()
+        bg_image_label_row.addStretch(1)
+        bg_image_label_row.addWidget(self.bg_image_label)
+        root.addLayout(bg_image_label_row)
+
+        # Background image row 2: opacity slider
+        bg_opacity_row = QHBoxLayout()
+        bg_opacity_row.addWidget(make_label(tr("settings.bg_image_opacity"), "muted"))
+        bg_opacity_row.addWidget(self.bg_opacity_slider, 1)
+        bg_opacity_row.addWidget(self.bg_opacity_value_label)
+        root.addLayout(bg_opacity_row)
+
+        # Background image row 3: blur slider
+        bg_blur_row = QHBoxLayout()
+        bg_blur_row.addWidget(make_label(tr("settings.bg_image_blur"), "muted"))
+        bg_blur_row.addWidget(self.bg_blur_slider, 1)
+        bg_blur_row.addWidget(self.bg_blur_value_label)
+        root.addLayout(bg_blur_row)
 
         self.sidebar_side_row = QHBoxLayout()
         self.sidebar_side_row.addWidget(make_label(tr("settings.sidebar_position")))
@@ -217,6 +277,7 @@ class SettingsDialog(QDialog):
         root.addLayout(credit)
 
     def to_settings(self, previous: PomodoroSettings) -> PomodoroSettings:
+        s = self.size()
         return PomodoroSettings(
             layout=str(self.layout_switcher.current_value() or previous.layout),
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
@@ -224,6 +285,9 @@ class SettingsDialog(QDialog):
             accent_color=self._accent_value,
             break_color=self._break_color_value,
             bg_tint=self._bg_tint_value,
+            bg_image_path=self._bg_image_path,
+            bg_image_opacity=int(self.bg_opacity_slider.value()),
+            bg_image_blur=int(self.bg_blur_slider.value()),
             color_preset=self._current_preset_id,
             pomodoro_minutes=int(self.pomodoro_spin.value()),
             break_minutes=int(self.break_spin.value()),
@@ -232,6 +296,8 @@ class SettingsDialog(QDialog):
             language=str(self.language_combo.currentData() or previous.language),
             corner_left=previous.corner_left,
             corner_top=previous.corner_top,
+            dialog_width=s.width(),
+            dialog_height=s.height(),
         )
 
     def _on_preset_changed(self, _index: int) -> None:
@@ -366,6 +432,33 @@ class SettingsDialog(QDialog):
             if preset:
                 return preset.bg_tint
         return ""
+
+    # --- Background image ----------------------------------------------------
+
+    def _choose_bg_image(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("settings.bg_image_pick_title"),
+            self._bg_image_path or "",
+            "Images (*.png *.jpg *.jpeg *.webp *.gif);;All files (*.*)",
+        )
+        if not path:
+            return
+        self._bg_image_path = str(path)
+        self.bg_image_label.setText(self._format_bg_image_label())
+
+    def _clear_bg_image(self) -> None:
+        self._bg_image_path = ""
+        self.bg_image_label.setText(self._format_bg_image_label())
+
+    def _format_bg_image_label(self) -> str:
+        if not self._bg_image_path:
+            return tr("settings.bg_image_none")
+        from pathlib import Path
+        return Path(self._bg_image_path).name
+
+    def _format_percent(self, value: int) -> str:
+        return f"{int(value)}%"
 
     def _effective_default_accent(self) -> str:
         theme_value = self.theme_switcher.current_value()

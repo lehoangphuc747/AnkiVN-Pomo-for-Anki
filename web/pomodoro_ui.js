@@ -108,6 +108,26 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  window.PomodoroBg = {
+    apply(dataUri, opacity, blurPx, overlayColor) {
+      const layer = document.getElementById("bg-image-layer");
+      const overlay = document.getElementById("bg-image-overlay");
+      if (!layer || !overlay) return;
+      if (dataUri) {
+        layer.style.backgroundImage = `url("${dataUri}")`;
+        layer.style.opacity = String(Math.max(0, Math.min(1, Number(opacity) || 0)));
+        const blur = Math.max(0, Math.min(60, Number(blurPx) || 0));
+        layer.style.filter = blur > 0 ? `blur(${blur}px)` : "none";
+        overlay.style.background = overlayColor || "transparent";
+      } else {
+        layer.style.backgroundImage = "";
+        layer.style.opacity = "0";
+        layer.style.filter = "none";
+        overlay.style.background = "transparent";
+      }
+    }
+  };
+
   function flushDrag() {
     dragFrame = 0;
     if (!pendingDrag) return;

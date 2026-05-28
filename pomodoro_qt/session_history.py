@@ -146,7 +146,6 @@ def _current_summary_card(metrics: SessionMetrics) -> QFrame:
         _stat_pill(tr("metric.retention"), tr("common.percent", value=format_number(max(0, metrics.session_retention))), COLORS["green"]),
         1,
     )
-    stats.addWidget(_stat_pill(tr("common.xp"), f"+{format_number(max(0, metrics.session_xp))}", COLORS["red"]), 1)
     layout.addLayout(stats)
     return card
 
@@ -412,7 +411,6 @@ def _entry_detail(entry: SessionHistoryEntry) -> str:
         minutes=format_number(_minutes(entry.duration_seconds)),
         cards=format_number(max(0, entry.cards)),
         retention=format_number(max(0, entry.retention)),
-        xp=format_number(max(0, entry.xp)),
         deck=deck,
     )
 
@@ -450,8 +448,7 @@ def _summary_for_day(day: str, summaries: list[dict], entries: list[SessionHisto
 def _summary_text(summary: dict) -> str:
     pomodoros = _int(summary.get("pomodoros"))
     cards = _int(summary.get("cards"))
-    xp = _int(summary.get("xp"))
-    return f"{format_number(pomodoros)} Pomo - {format_number(cards)} {tr('common.cards')} - {format_number(xp)} {tr('common.xp')}"
+    return f"{format_number(pomodoros)} Pomo - {format_number(cards)} {tr('common.cards')}"
 
 
 def _summaries_from_history(history: Sequence[SessionHistoryEntry]) -> list[dict]:

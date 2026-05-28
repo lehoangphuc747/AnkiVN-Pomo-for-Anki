@@ -7,6 +7,7 @@ from typing import Callable, Optional
 from aqt.qt import QDockWidget, QWidget, Qt, QDesktopServices, QUrl
 
 from .corner_badge import HtmlCornerBadgeWidget
+from .bg_image import BgImageLayer
 from .cards_metric import CardsStudiedMetrics
 from .experience_metric import ExperienceMetrics
 from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_RIGHT, SessionMetrics
@@ -98,6 +99,8 @@ class UIManager:
             *self.metric_popovers.values(),
         ]:
             widget.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color, self._bg_tint))
+
+        self._apply_bg_image(settings)
 
         self.under_dock = self._make_dock("PomodoroUnderToolbar", self.under_widget, TOP_DOCK)
         sidebar_area = RIGHT_DOCK if settings.sidebar_side == SIDEBAR_RIGHT else LEFT_DOCK
@@ -293,6 +296,29 @@ class UIManager:
         self.mw.addDockWidget(area, dock)
         dock.hide()
         return dock
+
+    def _apply_bg_image(self, settings) -> None:
+        """Attach background image layers to under/sidebar/corner widgets."""
+        path = getattr(settings, "bg_image_path", "") or ""
+        opacity = int(getattr(settings, "bg_image_opacity", 18) or 0)
+        blur = int(getattr(settings, "bg_image_blur", 8) or 0)
+        is_dark = self._theme == "dark"
+
+        for widget in (self.under_widget, self.sidebar_widget):
+            if widget is None:
+                continue
+            layer = getattr(widget, "_bg_layer", None)
+            if layer is None:
+                layer = BgImageLayer(widget)
+                widget._bg_layer = layer  # noqa: SLF001 - intentional cache
+            if path:
+                layer.set_image(path, opacity, blur, dark=is_dark)
+            else:
+                layer.clear()
+
+        # Corner badge: HTML/CSS based, handled by the widget itself.
+        if self.corner_widget is not None and hasattr(self.corner_widget, "set_background_image"):
+            self.corner_widget.set_background_image(path, opacity, blur, dark=is_dark)
 
     def _connect_layout_buttons(self, widget, floating_audio: bool) -> None:
         widget.pause_button.clicked.connect(self._on_toggle_timer_pause)

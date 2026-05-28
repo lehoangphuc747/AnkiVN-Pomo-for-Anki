@@ -49,6 +49,27 @@ body {
   user-select: none;
 }
 
+.bg-image-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.bg-image-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: transparent;
+  transition: background 200ms ease;
+}
+
 button,
 input {
   font: inherit;

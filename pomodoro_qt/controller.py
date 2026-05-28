@@ -256,13 +256,27 @@ class PomodoroAddonController:
         play_start_cue()
 
     def _add_menu_action(self) -> None:
-        menu = getattr(getattr(self.mw, "form", None), "menuTools", None)
-        if menu is None:
-            return
         action = QAction(tr("menu.settings"), self.mw)
         action.setIcon(addon_logo_icon())
         action.triggered.connect(self.open_settings)
-        menu.addAction(action)
+
+        # Try to find existing AnkiVN menu (created by Super Free TTS or similar)
+        ankivn_menu = None
+        menubar = getattr(getattr(self.mw, "form", None), "menubar", None)
+        if menubar is not None:
+            for menu_action in menubar.actions():
+                if menu_action.objectName() == "sf_ankivn_menu" and menu_action.menu():
+                    ankivn_menu = menu_action.menu()
+                    break
+
+        if ankivn_menu is not None:
+            ankivn_menu.addAction(action)
+        else:
+            menu = getattr(getattr(self.mw, "form", None), "menuTools", None)
+            if menu is None:
+                return
+            menu.addAction(action)
+
         self.settings_action = action
 
     def _update_menu_text(self) -> None:
