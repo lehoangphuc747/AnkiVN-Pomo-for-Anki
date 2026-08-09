@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from pomodoro_qt.audio_volume import clamp_local_volume_percent, local_volume_fraction, local_volume_label
+from pomodoro_vn.pomodoro_qt.audio_volume import clamp_local_volume_percent, local_volume_fraction, local_volume_label
 
 
 class AudioVolumeTests(unittest.TestCase):

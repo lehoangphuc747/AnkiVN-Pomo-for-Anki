@@ -1,0 +1,65 @@
+{
+  "display_name": "PomodoroVN",
+  "module_name": "pomodoro_vn",
+  "repo_name": "AnkiVN-Pomo-for-Anki",
+  "author": "lehoangphuc747",
+  "homepage": "https://github.com/lehoangphuc747/AnkiVN-Pomo-for-Anki",
+  "contact": "https://github.com/lehoangphuc747",
+  "description": "Pomodoro timer, study metrics and session history add-on for Anki",
+  "tags": "pomodoro timer productivity study metrics",
+  "copyright_start": 2026,
+  "conflicts": [],
+  "targets": [
+    "qt6"
+  ],
+  "min_anki_version": "23.10",
+  "ankiweb_conflicts_with_local": false,
+  "local_conflicts_with_ankiweb": false,
+  "build_config": {
+    "output_dir": "dist",
+    "trash_patterns": [
+      "*.pyc",
+      "*.pyo",
+      "__pycache__"
+    ],
+    "license_paths": [
+      "."
+    ],
+    "archive_exclude_patterns": [
+      ".git",
+      ".gitignore",
+      "__pycache__",
+      "*.pyc",
+      "*.pyo",
+      ".venv",
+      "venv",
+      ".env",
+      "node_modules",
+      ".DS_Store",
+      "build",
+      "dist",
+      ".pytest_cache",
+      ".mypy_cache",
+      ".ruff_cache",
+      "*.ankiaddon",
+      "*.zip",
+      ".aab",
+      "Thumbs.db",
+      "*.swp",
+      "*.swo",
+      "meta.json",
+      "pomodoro_qt_state.json",
+      "pomodoro_qt.db",
+      "pomodoro_qt.log",
+      "ankiaddon_dist",
+      ".test_tmp"
+    ],
+    "ui_config": {
+      "ui_dir": "ui",
+      "designer_dir": "designer",
+      "resources_dir": "resources",
+      "forms_package": "forms",
+      "exclude_optional_resources": false
+    }
+  }
+}

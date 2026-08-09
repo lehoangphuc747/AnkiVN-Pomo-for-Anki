@@ -15,21 +15,21 @@ PomodoroVN is a Qt-based Anki add-on for running Pomodoro study sessions inside 
 
 ## Install
 
-For local development, place this folder in Anki's add-on directory and restart Anki:
+For local development, link the add-on source into Anki using AADT (recommended), or copy the package folder:
 
 ```text
-Anki2/addons21/Pomodoro
+Anki2/addons21/pomodoro_vn
 ```
 
-The add-on entrypoint is `__init__.py`, which loads `pomodoro_qt.controller.setup_addon()`.
+The add-on entrypoint is `src/pomodoro_vn/__init__.py`, which loads `pomodoro_vn.pomodoro_qt.controller.setup_addon()`.
 
 To build an installable `.ankiaddon` package, run from the repo root:
 
 ```powershell
-python package_ankiaddon.py
+uv run aadt build
 ```
 
-The package is written to `../ankiaddon_dist` by default. The packaging script includes the add-on source/assets and excludes runtime data such as `meta.json`, local state, SQLite databases, logs, caches, and temporary files.
+The package is written to `dist/AnkiVN-Pomo-for-Anki-<version>.ankiaddon`. AADT includes the add-on source/assets and excludes runtime data such as `meta.json`, local state, SQLite databases, logs, caches, and temporary files (see `archive_exclude_patterns` in `addon.json`).
 
 ## Usage
 
@@ -78,13 +78,21 @@ Reset options:
 
 ## Development
 
+This project uses [AADT](https://github.com/libukai/Anki-Addon-Dev-ToolKit) with a `src/` layout, `uv` for dependency management, and AADT for building/linking.
+
+```powershell
+uv sync --group dev       # install dev dependencies (aadt, pytest, ruff)
+uv run aadt link          # link src/pomodoro_vn into Anki addons21 (dev)
+uv run aadt build         # build .ankiaddon into dist/
+```
+
 Useful validation commands:
 
 ```powershell
-python -m unittest discover
-python -m compileall -q pomodoro_qt
-python -m json.tool pomodoro_qt\locales\en.json
-python -m json.tool pomodoro_qt\locales\vi.json
+$env:PYTHONPATH = "src"; python -m unittest discover -s tests
+python -m compileall -q src\pomodoro_vn
+python -m json.tool src\pomodoro_vn\pomodoro_qt\locales\en.json
+python -m json.tool src\pomodoro_vn\pomodoro_qt\locales\vi.json
 git diff --check
 ```
 
@@ -97,12 +105,15 @@ Focused tests currently cover:
 ## Project Layout
 
 ```text
-pomodoro_qt/              Qt UI, controller, metrics, storage, settings
-pomodoro_qt/locales/      English and Vietnamese strings
-assets/icons/             UI icons
-web/                      legacy/static UI assets
+src/pomodoro_vn/          add-on package (module_name = pomodoro_vn)
+src/pomodoro_vn/pomodoro_qt/   Qt UI, controller, metrics, storage, settings
+src/pomodoro_vn/pomodoro_qt/locales/  English and Vietnamese strings
+src/pomodoro_vn/assets/    icons and focus/cue sounds
+src/pomodoro_vn/web/       corner badge HTML/JS/CSS
+src/pomodoro_vn/config.json     Anki add-on config schema/defaults
 tests/                    unittest test suite
-package_ankiaddon.py      safe .ankiaddon packaging script
+addon.json                AADT build metadata
+pyproject.toml            uv project + dev dependencies
 ```
 
 ## Packaging Notes
@@ -116,4 +127,4 @@ Do not package or commit runtime/user data:
 - cache folders
 - temporary files
 
-`package_ankiaddon.py` already excludes these files when building an `.ankiaddon`.
+`aadt build` already excludes these files (see `archive_exclude_patterns` in `addon.json`).

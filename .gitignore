@@ -1,12 +1,51 @@
+# Build output
+build/
+dist/
+*.ankiaddon
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.log
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+
+# uv
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# aadt specific
+.aadt/
+
+# validator
+.mypy_cache
+.ruff_cache
+.pytest_cache
+
+# Anki runtime data
+meta.json
+pomodoro_qt_state.json
+pomodoro_qt.db
+pomodoro_qt.log
+
+# Legacy packaging output
+ankiaddon_dist/
 *.tmp
 *.bak
 *.sqlite
 *.sqlite3
-*.ankiaddon
-ankiaddon_dist/
-pomodoro_qt_state.json
-pomodoro_qt.db
+.test_tmp/
+test_tmp/

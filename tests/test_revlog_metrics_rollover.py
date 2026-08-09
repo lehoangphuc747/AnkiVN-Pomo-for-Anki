@@ -4,7 +4,7 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from pomodoro_qt.revlog_metrics import RevlogMetricsSource
+from pomodoro_vn.pomodoro_qt.revlog_metrics import RevlogMetricsSource
 
 
 DAY = 86400
@@ -67,10 +67,10 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + 60)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 old_day = source.metrics()
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY + DAY):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY + DAY):
                 new_day = source.metrics()
 
         self.assertEqual(old_day.cards.cards, 1)
@@ -83,8 +83,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + 60 * 60)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=4 * 60 * 60):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=4 * 60 * 60):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 snapshot = source.metrics()
 
         self.assertEqual(snapshot.cards.cards, 1)
@@ -97,8 +97,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + 180, ease=4, cid=456)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 snapshot = source.metrics()
 
         self.assertEqual(snapshot.cards.cards, 3)
@@ -114,8 +114,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + DAY + 60, ease=1, cid=123)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY + DAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY + DAY):
                 snapshot = source.metrics()
 
         self.assertEqual(snapshot.streak.days, 2)
@@ -129,8 +129,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + 60, ease=3, cid=123)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 initial = source.metrics()
                 self.assertEqual(initial.cards.cards, 1)
 
@@ -159,8 +159,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         db.add_review(TODAY + 180, ease=0, cid=4, time_ms=30_000)
         source = RevlogMetricsSource(_Mw(db))
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 snapshot = source.metrics()
 
         self.assertEqual(snapshot.study_time.today_seconds, 120)
@@ -177,8 +177,8 @@ class RevlogMetricsRolloverTests(unittest.TestCase):
         mw = _Mw(first_db)
         source = RevlogMetricsSource(mw)
 
-        with patch("pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
-            with patch("pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
+        with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_rollover_seconds", return_value=0):
+            with patch("pomodoro_vn.pomodoro_qt.revlog_metrics.anki_today_start", return_value=TODAY):
                 first = source.metrics()
                 mw.col = _Col(second_db)
                 second = source.metrics()

@@ -4,12 +4,13 @@ Quick reference cho AI agents (Codex, Kiro, Cursor, Aider...) làm việc với 
 
 ## Project tóm tắt
 
-PomodoroVN là **Anki add-on** chạy trong Anki desktop, dùng PyQt (qua `aqt.qt`). Không phải web app, không phải standalone. Entrypoint: `__init__.py` → `pomodoro_qt.controller.setup_addon()`.
+PomodoroVN là **Anki add-on** chạy trong Anki desktop, dùng PyQt (qua `aqt.qt`). Không phải web app, không phải standalone. Entrypoint: `src/pomodoro_vn/__init__.py` → `pomodoro_vn.pomodoro_qt.controller.setup_addon()`.
 
 - Python 3.9+ (chạy bên trong Anki nên không có virtualenv)
 - UI: PyQt6 (qua wrapper `aqt.qt`)
 - Storage: SQLite (`analytics_store.py`) + JSON state
 - Ngôn ngữ UI: Tiếng Việt (mặc định) + English
+- Build: theo [Anki-Addon-Dev-ToolKit (AADT)](https://github.com/libukai/Anki-Addon-Dev-ToolKit), dùng `uv run aadt build`
 
 ## Ngôn ngữ giao tiếp
 
@@ -30,7 +31,11 @@ Action từ corner badge HTML đi qua `data-action="..."` → handler trong `ui_
 ## Module map
 
 ```
-pomodoro_qt/
+src/pomodoro_vn/          package chính (module_name theo addon.json)
+  __init__.py             Anki entrypoint (lazy load, chỉ chạy khi có aqt)
+  config.json             Anki add-on config (commit được, là default/schema config)
+
+src/pomodoro_vn/pomodoro_qt/
   __init__.py            re-exports
   controller.py          add-on entrypoint, hook đăng ký vào Anki
   ui_manager.py          quản lý 3 layout, dock, popover, dispatch action
@@ -89,13 +94,15 @@ pomodoro_qt/
     en.json              English
   style.py               COLORS palette + addon_qss() + resolve_colors()
 
-assets/icons/            tất cả SVG icon
-assets/sounds/           audio focus + cue_start.mp3/cue_end.mp3
-web/                     pomodoro_ui.html/css/js cho corner badge
-tests/                   unittest suite
-package_ankiaddon.py     đóng gói .ankiaddon
-config.json              Anki add-on config (commit được, là default/schema config)
+src/pomodoro_vn/assets/icons/    tất cả SVG icon
+src/pomodoro_vn/assets/sounds/   audio focus + cue_start.mp3/cue_end.mp3
+src/pomodoro_vn/web/             pomodoro_ui.html/css/js cho corner badge
+tests/                           unittest suite
+addon.json                       metadata AADT (display_name, module_name, build_config)
+pyproject.toml                   uv project + dev deps (aadt, pytest, ruff)
 ```
+
+Lưu ý: `Path(__file__).resolve().parent.parent` trong code trỏ tới `src/pomodoro_vn/` (nơi chứa `assets/`, `web/`, `config.json`, file state runtime).
 
 ## Patterns thường gặp
 
@@ -131,7 +138,7 @@ Settings action trong `controller.py::_add_menu_action` cố gắng gắn vào m
 
 ### Config vs state
 
-- `config.json` (root) là Anki add-on config → giữ nguyên, commit được. Settings mới (theme, accent, break color, bg tint, bg image, preset, sidebar_side) đều nằm trong `PomodoroSettings` (`models.py`) và được map qua `to_config()` / `from_config()`.
+- `src/pomodoro_vn/config.json` là Anki add-on config → giữ nguyên, commit được. Settings mới (theme, accent, break color, bg tint, bg image, preset, sidebar_side) đều nằm trong `PomodoroSettings` (`models.py`) và được map qua `to_config()` / `from_config()`.
 - `suppress_changelog_popup` + `last_changelog_version` nằm trong **data_store JSON** (`storage.py`), không phải config. Khi `controller._record_changelog_seen` cập nhật phải sync cả vào `session_manager._state` để save sau đó không ghi đè mất.
 
 ### Mở URL ngoài
@@ -145,6 +152,10 @@ QDesktopServices.openUrl(QUrl("https://..."))
 
 Dùng `pomodoro_qt/anki_day.py` + `revlog_metrics.py`. Không tự query SQLite của Anki trực tiếp. Tôn trọng "Next day starts at" của user (không dùng calendar midnight).
 
+### Import package trong test
+
+Tests import qua `pomodoro_vn.pomodoro_qt.xxx` (vd: `from pomodoro_vn.pomodoro_qt.i18n import ...`). Chạy test cần `PYTHONPATH=src` hoặc `uv run pytest` (pyproject.toml đã set `pythonpath = ["src"]`). Không import `aqt` ở top-level trong các module test — `src/pomodoro_vn/__init__.py` lazy-load nên import package ngoài Anki không crash.
+
 ## Quy tắc dữ liệu (quan trọng)
 
 Tách rạch ròi 2 nguồn:
@@ -157,11 +168,18 @@ Không trộn 2 nguồn. Session metric không được "lậm" sang Anki-wide.
 ## Validation trước khi commit
 
 ```powershell
-python -m unittest discover
-python -m compileall -q pomodoro_qt
-python -m json.tool pomodoro_qt\locales\en.json
-python -m json.tool pomodoro_qt\locales\vi.json
+$env:PYTHONPATH = "src"; python -m unittest discover -s tests
+python -m compileall -q src\pomodoro_vn
+python -m json.tool src\pomodoro_vn\pomodoro_qt\locales\en.json
+python -m json.tool src\pomodoro_vn\pomodoro_qt\locales\vi.json
+python -m json.tool addon.json
 git diff --check
+```
+
+Hoặc dùng uv (aadt đã trong dev group):
+
+```powershell
+uv run pytest
 ```
 
 Khi đụng UI: nhớ test cả 3 layout (under / sidebar / corner). Corner badge dùng HTML/JS nên cần sửa `web/*` riêng.
@@ -196,11 +214,20 @@ Branch hiện tại: `main`. Push thẳng `main` được (đây là personal ad
 
 ## Đóng gói .ankiaddon
 
+Dùng AADT build (thay thế `package_ankiaddon.py` đã bỏ):
+
 ```powershell
-python package_ankiaddon.py
+uv run aadt build
 ```
 
-Output ra `../ankiaddon_dist/PomoVN_<timestamp>.ankiaddon`. Script đã tự exclude runtime data và `__pycache__`.
+Output ra `dist/AnkiVN-Pomo-for-Anki-<version>.ankiaddon`. Version lấy từ git tag (không có tag thì đọc từ `pyproject.toml`). Builder tự exclude `.git`, runtime data, `__pycache__`, `dist` theo `archive_exclude_patterns` trong `addon.json`.
+
+Có thể link trực tiếp vào Anki để dev:
+
+```powershell
+uv run aadt link        # tạo junction từ src/pomodoro_vn vào addons21
+uv run aadt link --unlink
+```
 
 ## Style / convention
 
@@ -214,7 +241,9 @@ Output ra `../ankiaddon_dist/PomoVN_<timestamp>.ankiaddon`. Script đã tự exc
 ## Tests
 
 ```powershell
-python -m unittest discover
+$env:PYTHONPATH = "src"; python -m unittest discover -s tests
+# hoặc
+uv run pytest
 ```
 
 Coverage hiện tại tập trung:

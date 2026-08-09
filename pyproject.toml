@@ -1,0 +1,45 @@
+[project]
+name = "ankivn-pomo-for-anki"
+version = "1.3.1"
+description = "PomodoroVN - Pomodoro timer and study metrics add-on for Anki"
+readme = "README.md"
+requires-python = ">=3.13"
+
+authors = [{ name = "lehoangphuc747" }]
+license = { text = "MIT" }
+keywords = ["anki", "addon", "pomodoro", "timer", "productivity"]
+
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "aadt>=1.0.0",
+    "pytest>=8.0.0",
+    "ruff>=0.12.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.0"]
+build-backend = "uv_build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pomodoro_vn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = [
+    "E501", # line too long, handled by ruff formatter
+]

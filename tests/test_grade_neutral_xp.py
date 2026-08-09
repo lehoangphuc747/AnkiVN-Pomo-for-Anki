@@ -6,16 +6,16 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
-from pomodoro_qt.analytics_store import PomodoroAnalyticsStore
-from pomodoro_qt.experience_metric import (
+from pomodoro_vn.pomodoro_qt.analytics_store import PomodoroAnalyticsStore
+from pomodoro_vn.pomodoro_qt.experience_metric import (
     XP_PER_ANKI_REVIEW_EVENT,
     XP_PER_UNIQUE_CARD,
     answer_experience,
     unique_cards_experience,
 )
-from pomodoro_qt.session_manager import PomodoroSessionManager
-from pomodoro_qt.storage import PomodoroDataStore
-from pomodoro_qt.tracking import CARD_KIND_REVIEW, ReviewAnswerEvent
+from pomodoro_vn.pomodoro_qt.session_manager import PomodoroSessionManager
+from pomodoro_vn.pomodoro_qt.storage import PomodoroDataStore
+from pomodoro_vn.pomodoro_qt.tracking import CARD_KIND_REVIEW, ReviewAnswerEvent
 
 
 class _FakeProfileManager:

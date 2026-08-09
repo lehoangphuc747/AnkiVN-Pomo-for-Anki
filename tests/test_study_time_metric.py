@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from pomodoro_qt.i18n import set_language
-from pomodoro_qt.study_time_metric import format_study_duration, format_study_duration_long
+from pomodoro_vn.pomodoro_qt.i18n import set_language
+from pomodoro_vn.pomodoro_qt.study_time_metric import format_study_duration, format_study_duration_long
 
 
 class StudyTimeMetricTests(unittest.TestCase):

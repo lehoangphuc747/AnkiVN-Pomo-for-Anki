@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from pomodoro_qt.i18n import format_number, set_language
+from pomodoro_vn.pomodoro_qt.i18n import format_number, set_language
 
 
 class NumberFormatTests(unittest.TestCase):
