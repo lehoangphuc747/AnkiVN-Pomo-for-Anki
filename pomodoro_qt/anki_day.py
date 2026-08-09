@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 
@@ -30,13 +30,19 @@ def anki_today_start(db: Any, rollover_seconds: int) -> int:
     else:
         modifier = f"-{max(0, int(rollover_seconds))} seconds"
     try:
+        # We use 'utc' modifier to convert start of day local time to UTC timestamp,
+        # then add rollover_seconds to get the correct Anki day boundary timestamp.
         value = db.scalar(
-            "SELECT CAST(STRFTIME('%s', 'now', ?, 'localtime', 'start of day') AS int)",
+            "SELECT CAST(STRFTIME('%s', 'now', ?, 'localtime', 'start of day', 'utc') AS int)",
             modifier,
         )
-        return int(value)
+        return int(value) + int(rollover_seconds)
     except Exception:
-        return int(datetime.now().timestamp())
+        local_now = datetime.now()
+        today_start = datetime(local_now.year, local_now.month, local_now.day) + timedelta(seconds=rollover_seconds)
+        if local_now < today_start:
+            today_start -= timedelta(days=1)
+        return int(today_start.timestamp())
 
 
 def day_key(day_start: int) -> str:

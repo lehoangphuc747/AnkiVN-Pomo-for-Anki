@@ -8,7 +8,8 @@ from pomodoro_qt.revlog_metrics import RevlogMetricsSource
 
 
 DAY = 86400
-TODAY = 1704067200
+from datetime import datetime
+TODAY = int(datetime(2024, 1, 1).timestamp())
 
 
 class _Db:

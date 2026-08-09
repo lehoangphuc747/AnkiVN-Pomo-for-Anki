@@ -174,13 +174,14 @@ class RevlogMetricsSource:
         rows = db.all(
             """
             SELECT
-                CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day') AS int) AS day,
+                CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day', 'utc') AS int) + ? AS day,
                 COUNT(*) AS reviews
             FROM revlog
             WHERE ease >= 1
             GROUP BY day
             ORDER BY 1
             """,
+            rollover_seconds,
             rollover_seconds,
         )
         self._day_rollup = {_int(day): _int(reviews) for day, reviews in rows if day is not None}
@@ -391,13 +392,14 @@ def _unique_cards_by_anki_day_in_range(db: Any, start_ms: int, end_ms: int, roll
         """
         SELECT COUNT(*) FROM (
             SELECT
-                CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day') AS int) AS day,
+                CAST(STRFTIME('%s', id / 1000 - ?, 'unixepoch', 'localtime', 'start of day', 'utc') AS int) + ? AS day,
                 cid
             FROM revlog
             WHERE id >= ? AND id < ? AND ease BETWEEN 1 AND 4
             GROUP BY day, cid
         )
         """,
+        rollover_seconds,
         rollover_seconds,
         start_ms,
         end_ms,
