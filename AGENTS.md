@@ -34,49 +34,67 @@ pomodoro_qt/
   __init__.py            re-exports
   controller.py          add-on entrypoint, hook đăng ký vào Anki
   ui_manager.py          quản lý 3 layout, dock, popover, dispatch action
-  ui_components.py       button factories, icon paths, symbols, COLORS
+  ui_components.py       button factories, icon paths, symbols
   widgets.py             compatibility re-exports (legacy)
+
+  anki_bridge.py         đăng ký gui_hooks (answer, profile, sync, day rollover)
+  tracking.py            ReviewTracker: theo dõi lượt trả lời thẻ
+  anki_day.py            ngày Anki ("Next day starts at"), day_key, cutoff
+  revlog_metrics.py      nguồn metric revlog: cards/XP/retention/streak/study time
 
   under_toolbar.py       layout 1
   sidebar_panel.py       layout 2
   corner_badge.py        layout 3 (Python side)
 
-  models.py              dataclasses, MODE_BREAK/MODE_POMODORO, LAYOUT_*
-  timer.py               timer logic
+  models.py              dataclasses, MODE_*, LAYOUT_*, PomodoroSettings
+  timer.py               timer logic (bao gồm overtime / Keep going)
   session_manager.py     session state
-  storage.py             persistence wrapper
+  storage.py             JSON state wrapper
   analytics_store.py     SQLite store
   config_store.py        Anki config wrapper
 
-  experience_metric.py   tính XP từ revlog
-  cards_metric.py        đếm cards studied
+  cards_metric.py        đếm cards studied từ revlog
+  experience_metric.py   tính XP từ revlog (grade-neutral)
   retention_metric.py    tính retention
   streak_metric.py       streak ngày
   study_time_metric.py   tổng thời gian học
+
+  cards_studied.py       popover factory cho Cards Studied
+  experience.py          popover factory cho Experience
+  retention.py           popover factory cho Retention
+  streaks.py             popover factory cho Streak
+  study_time.py          popover factory cho Study Time
   session_history.py     history phiên Pomodoro
 
   metric_popover.py      popover khi click metric button
   popover_shell.py       shell chung
   html_widgets.py        helper HTML render
 
-  dialogs.py             dialog hoàn thành Pomodoro / break
+  dialogs.py             dialog hoàn thành Pomodoro / break / edit time
+  changelog.py           CURRENT_VERSION + so sánh version
+  changelog_dialog.py    popup changelog ("Có gì mới")
   settings_dialog.py     dialog Cài đặt
+  color_presets.py       7 theme presets + break color
   backup.py              export/import JSON
   backup_manager.py      reset data
 
   sound.py               audio player + AudioPopover
   audio_volume.py        volume control
+  cue_sound.py           start/end cue sounds
 
+  bg_image.py            background image layer
   i18n.py                tr(), format_number, current_language
   locales/
     vi.json              tiếng Việt (default)
     en.json              English
-  style.py               COLORS palette + Qt stylesheet
+  style.py               COLORS palette + addon_qss() + resolve_colors()
 
 assets/icons/            tất cả SVG icon
+assets/sounds/           audio focus + cue_start.mp3/cue_end.mp3
 web/                     pomodoro_ui.html/css/js cho corner badge
 tests/                   unittest suite
 package_ankiaddon.py     đóng gói .ankiaddon
+config.json              Anki add-on config (commit được, là default/schema config)
 ```
 
 ## Patterns thường gặp
@@ -106,6 +124,15 @@ package_ankiaddon.py     đóng gói .ankiaddon
 ### Thêm chuỗi i18n
 
 **LUÔN sửa cả 2 file** `locales/vi.json` + `locales/en.json`. Key giống nhau, value khác. Format placeholder: `{name}` (Python `.format`).
+
+### Menu Cài đặt (AnkiVN)
+
+Settings action trong `controller.py::_add_menu_action` cố gắng gắn vào menu AnkiVN có `objectName() == "sf_ankivn_menu"` (tạo bởi Super Free TTS); nếu không thấy thì fallback vào `menuTools`. Đừng hardcode thêm menu khác.
+
+### Config vs state
+
+- `config.json` (root) là Anki add-on config → giữ nguyên, commit được. Settings mới (theme, accent, break color, bg tint, bg image, preset, sidebar_side) đều nằm trong `PomodoroSettings` (`models.py`) và được map qua `to_config()` / `from_config()`.
+- `suppress_changelog_popup` + `last_changelog_version` nằm trong **data_store JSON** (`storage.py`), không phải config. Khi `controller._record_changelog_seen` cập nhật phải sync cả vào `session_manager._state` để save sau đó không ghi đè mất.
 
 ### Mở URL ngoài
 
