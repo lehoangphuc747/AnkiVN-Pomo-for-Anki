@@ -23,6 +23,11 @@ THEME_SYSTEM = "system"
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
 
+HIDEABLE_ICONS = (
+    "experience", "streak", "cards", "study_time", "retention",
+    "audio", "feedback",
+)
+
 
 @dataclass
 class PomodoroSettings:
@@ -45,6 +50,11 @@ class PomodoroSettings:
     corner_top: Optional[int] = None
     dialog_width: Optional[int] = None
     dialog_height: Optional[int] = None
+    hidden_icons: list = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.hidden_icons is None:
+            self.hidden_icons = []
 
     @classmethod
     def from_config(cls, config: dict) -> "PomodoroSettings":
@@ -73,6 +83,7 @@ class PomodoroSettings:
             corner_top=_optional_int(config.get("corner_top")),
             dialog_width=_clamp_optional_int(config.get("dialog_width"), 520, 1600),
             dialog_height=_clamp_optional_int(config.get("dialog_height"), 400, 1200),
+            hidden_icons=_parse_hidden_icons(config.get("hidden_icons")),
         )
 
     def to_config(self) -> dict:
@@ -96,6 +107,7 @@ class PomodoroSettings:
             "corner_top": self.corner_top,
             "dialog_width": self.dialog_width,
             "dialog_height": self.dialog_height,
+            "hidden_icons": list(self.hidden_icons),
         }
 
     @property
@@ -438,6 +450,13 @@ def _clamp_optional_int(value: object, minimum: int, maximum: int) -> Optional[i
     if v <= 0:
         return None
     return max(minimum, min(maximum, v))
+
+
+def _parse_hidden_icons(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    valid = set(HIDEABLE_ICONS)
+    return [str(v) for v in value if str(v) in valid]
 
 
 def _normalize_accent(value: object) -> str:

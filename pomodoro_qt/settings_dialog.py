@@ -10,11 +10,13 @@ from aqt.qt import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QSize,
     QSlider,
     QSpinBox,
+    QTabWidget,
     Qt,
     QVBoxLayout,
     QWidget,
@@ -23,7 +25,7 @@ from aqt.qt import (
 
 from .color_presets import CUSTOM_PRESET_ID, DEFAULT_PRESET_ID, PRESETS, get_preset
 from .i18n import DEFAULT_LANGUAGE, available_languages, tr
-from .models import LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, THEME_DARK, THEME_LIGHT, THEME_SYSTEM, PomodoroSettings
+from .models import HIDEABLE_ICONS, LAYOUT_CORNER, LAYOUT_SIDEBAR, LAYOUT_UNDER, SIDEBAR_LEFT, SIDEBAR_RIGHT, THEME_DARK, THEME_LIGHT, THEME_SYSTEM, PomodoroSettings
 from .style import DEFAULT_ACCENT_DARK, DEFAULT_ACCENT_LIGHT
 from .ui_components import PillSwitcher, VIETNAM_ICON_PATH, make_button, make_icon_label, make_label, set_addon_window_icon
 
@@ -161,18 +163,54 @@ class SettingsDialog(QDialog):
             if fallback_index >= 0:
                 self.language_combo.setCurrentIndex(fallback_index)
 
-        for label, widget in [
-            (tr("settings.layout"), self.layout_switcher),
-            (tr("settings.pomodoro_time"), self.pomodoro_spin),
-            (tr("settings.break_time"), self.break_spin),
-            (tr("settings.theme"), self.theme_switcher),
-            (tr("settings.language"), self.language_combo),
-        ]:
+        # ── Tab widget ─────────────────────────────────────────────────
+        tabs = QTabWidget()
+        tabs.setDocumentMode(True)
+
+        def _row(label_text: str, widget: QWidget, parent_layout) -> None:
             row = QHBoxLayout()
-            row.addWidget(make_label(label))
+            row.addWidget(make_label(label_text))
             row.addStretch(1)
             row.addWidget(widget)
-            root.addLayout(row)
+            parent_layout.addLayout(row)
+
+        # ── Tab 1: Chung ───────────────────────────────────────────────
+        tab_general = QWidget()
+        gen = QVBoxLayout(tab_general)
+        gen.setContentsMargins(12, 14, 12, 14)
+        gen.setSpacing(10)
+
+        _row(tr("settings.layout"), self.layout_switcher, gen)
+
+        timer_grid = QGridLayout()
+        timer_grid.setSpacing(10)
+        timer_grid.addWidget(make_label(tr("settings.pomodoro_time")), 0, 0)
+        timer_grid.addWidget(self.pomodoro_spin, 0, 1)
+        timer_grid.addWidget(make_label(tr("settings.break_time")), 1, 0)
+        timer_grid.addWidget(self.break_spin, 1, 1)
+        timer_grid.setColumnStretch(0, 1)
+        gen.addLayout(timer_grid)
+
+        self.sidebar_side_row = QHBoxLayout()
+        self.sidebar_side_row.addWidget(make_label(tr("settings.sidebar_position")))
+        self.sidebar_side_row.addStretch(1)
+        self.sidebar_side_row.addWidget(self.sidebar_side_switcher)
+        gen.addLayout(self.sidebar_side_row)
+        self._update_sidebar_side_visibility()
+
+        gen.addWidget(self.auto_break)
+        gen.addWidget(self.auto_pomodoro_after_break)
+        gen.addStretch(1)
+        tabs.addTab(tab_general, tr("tab.general"))
+
+        # ── Tab 2: Giao diện ───────────────────────────────────────────
+        tab_appearance = QWidget()
+        app = QVBoxLayout(tab_appearance)
+        app.setContentsMargins(12, 14, 12, 14)
+        app.setSpacing(10)
+
+        _row(tr("settings.theme"), self.theme_switcher, app)
+        _row(tr("settings.language"), self.language_combo, app)
 
         accent_row = QHBoxLayout()
         accent_row.addWidget(make_label(tr("settings.accent_color")))
@@ -184,47 +222,72 @@ class SettingsDialog(QDialog):
         accent_row.addWidget(self.break_swatch)
         accent_row.addSpacing(4)
         accent_row.addWidget(self.bg_tint_swatch)
-        root.addLayout(accent_row)
+        app.addLayout(accent_row)
 
-        # Background image row 1: choose / clear + label
         bg_image_row = QHBoxLayout()
         bg_image_row.addWidget(make_label(tr("settings.bg_image")))
         bg_image_row.addStretch(1)
+        bg_image_row.addWidget(self.bg_image_label)
+        bg_image_row.addSpacing(8)
         bg_image_row.addWidget(self.bg_image_button)
         bg_image_row.addSpacing(4)
         bg_image_row.addWidget(self.bg_image_clear_button)
-        root.addLayout(bg_image_row)
+        app.addLayout(bg_image_row)
 
-        bg_image_label_row = QHBoxLayout()
-        bg_image_label_row.addStretch(1)
-        bg_image_label_row.addWidget(self.bg_image_label)
-        root.addLayout(bg_image_label_row)
+        opacity_row = QHBoxLayout()
+        opacity_row.addWidget(make_label(tr("settings.bg_image_opacity"), "muted"))
+        opacity_row.addWidget(self.bg_opacity_slider, 1)
+        opacity_row.addWidget(self.bg_opacity_value_label)
+        app.addLayout(opacity_row)
 
-        # Background image row 2: opacity slider
-        bg_opacity_row = QHBoxLayout()
-        bg_opacity_row.addWidget(make_label(tr("settings.bg_image_opacity"), "muted"))
-        bg_opacity_row.addWidget(self.bg_opacity_slider, 1)
-        bg_opacity_row.addWidget(self.bg_opacity_value_label)
-        root.addLayout(bg_opacity_row)
+        blur_row = QHBoxLayout()
+        blur_row.addWidget(make_label(tr("settings.bg_image_blur"), "muted"))
+        blur_row.addWidget(self.bg_blur_slider, 1)
+        blur_row.addWidget(self.bg_blur_value_label)
+        app.addLayout(blur_row)
 
-        # Background image row 3: blur slider
-        bg_blur_row = QHBoxLayout()
-        bg_blur_row.addWidget(make_label(tr("settings.bg_image_blur"), "muted"))
-        bg_blur_row.addWidget(self.bg_blur_slider, 1)
-        bg_blur_row.addWidget(self.bg_blur_value_label)
-        root.addLayout(bg_blur_row)
+        app.addStretch(1)
+        tabs.addTab(tab_appearance, tr("tab.appearance"))
 
-        self.sidebar_side_row = QHBoxLayout()
-        self.sidebar_side_row.addWidget(make_label(tr("settings.sidebar_position")))
-        self.sidebar_side_row.addStretch(1)
-        self.sidebar_side_row.addWidget(self.sidebar_side_switcher)
-        root.addLayout(self.sidebar_side_row)
-        self._update_sidebar_side_visibility()
+        # ── Tab 3: Tiện ích ────────────────────────────────────────────
+        tab_extras = QWidget()
+        ext = QVBoxLayout(tab_extras)
+        ext.setContentsMargins(12, 14, 12, 14)
+        ext.setSpacing(10)
 
-        root.addWidget(self.auto_break)
-        root.addWidget(self.auto_pomodoro_after_break)
-        root.addSpacing(4)
+        ext.addWidget(make_label(tr("settings.hidden_icons")))
 
+        self._hidden_icon_checks: dict[str, QCheckBox] = {}
+        _icon_tooltip_key = {
+            "experience": "tooltip.experience",
+            "streak": "tooltip.streak",
+            "cards": "tooltip.cards",
+            "study_time": "tooltip.study_time",
+            "retention": "tooltip.retention",
+            "audio": "tooltip.sound",
+            "feedback": "tooltip.feedback",
+        }
+        hidden_set = set(settings.hidden_icons)
+        hidden_grid = QGridLayout()
+        hidden_grid.setSpacing(4)
+        col = 0
+        row_idx = 0
+        for icon_id in HIDEABLE_ICONS:
+            tooltip_key = _icon_tooltip_key.get(icon_id, "")
+            label_text = tr(tooltip_key) if tooltip_key else icon_id
+            label_text = label_text.split("<br>")[0].replace("<b>", "").replace("</b>", "")
+            cb = QCheckBox(label_text)
+            cb.setChecked(icon_id not in hidden_set)
+            cb.setToolTip(tr(tooltip_key) if tooltip_key else "")
+            self._hidden_icon_checks[icon_id] = cb
+            hidden_grid.addWidget(cb, row_idx, col)
+            col += 1
+            if col >= 2:
+                col = 0
+                row_idx += 1
+        ext.addLayout(hidden_grid)
+
+        ext.addSpacing(6)
         data_row = QHBoxLayout()
         data_row.addWidget(make_label(tr("settings.data")))
         data_row.addStretch(1)
@@ -232,7 +295,7 @@ class SettingsDialog(QDialog):
         self.import_button = make_button(tr("backup.import_button"), "secondary", tr("backup.import_tooltip"))
         data_row.addWidget(self.export_button)
         data_row.addWidget(self.import_button)
-        root.addLayout(data_row)
+        ext.addLayout(data_row)
 
         reset_row = QHBoxLayout()
         reset_row.addStretch(1)
@@ -240,8 +303,14 @@ class SettingsDialog(QDialog):
         self.reset_all_button = make_button(tr("reset.all_button"), "secondary", tr("reset.all_tooltip"))
         reset_row.addWidget(self.reset_data_button)
         reset_row.addWidget(self.reset_all_button)
-        root.addLayout(reset_row)
+        ext.addLayout(reset_row)
 
+        ext.addStretch(1)
+        tabs.addTab(tab_extras, tr("tab.extras"))
+
+        root.addWidget(tabs)
+
+        # ── Footer: buttons + credit ───────────────────────────────────
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Apply
@@ -278,6 +347,7 @@ class SettingsDialog(QDialog):
 
     def to_settings(self, previous: PomodoroSettings) -> PomodoroSettings:
         s = self.size()
+        hidden_icons = [icon_id for icon_id, cb in self._hidden_icon_checks.items() if not cb.isChecked()]
         return PomodoroSettings(
             layout=str(self.layout_switcher.current_value() or previous.layout),
             sidebar_side=str(self.sidebar_side_switcher.current_value() or previous.sidebar_side),
@@ -298,6 +368,7 @@ class SettingsDialog(QDialog):
             corner_top=previous.corner_top,
             dialog_width=s.width(),
             dialog_height=s.height(),
+            hidden_icons=hidden_icons,
         )
 
     def _on_preset_changed(self, _index: int) -> None:
