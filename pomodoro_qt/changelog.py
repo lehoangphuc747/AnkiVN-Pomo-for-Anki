@@ -13,11 +13,55 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.3.1"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.3.1",
+        "date": "2026-06-07",
+        "vi": {
+            "Sửa lỗi": [
+                "Sửa lỗi lệch múi giờ (timezone offset) khi tính mốc thời gian bắt đầu ngày mới của Anki, giúp hiển thị chính xác số thẻ đã học (Cards Studied), Streak và điểm kinh nghiệm (XP) đồng bộ với Anki.",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "Fix timezone offset bug in Anki's day boundary calculation, ensuring Cards Studied, Streak, and XP match exactly between Pomodoro and Anki.",
+            ],
+        },
+    },
+    {
+        "version": "1.3.0",
+        "date": "2026-05-29",
+        "vi": {
+            "Tính năng mới": [
+                "Ảnh nền: chọn file ảnh JPG/PNG/WebP/GIF làm nền cho Under Toolbar, Sidebar và Corner Badge. Tuỳ chỉnh độ mờ và blur.",
+                "Ẩn icon: chọn ẩn các metric (Kinh nghiệm, Streak, Cards, Retention, Time), nút Âm thanh hoặc Góp ý — áp dụng cho cả 3 layout.",
+                "Settings dialog mới: chia 3 tab (Chung / Giao diện / Tiện ích) — gọn gàng, dễ tìm.",
+                "Settings dialog có nút Maximize và ghi nhớ kích thước cửa sổ giữa các lần mở.",
+                "Menu PomodoroVN tự động chèn vào menu AnkiVN nếu có (tương thích Super Free TTS), fallback về menu Tools.",
+            ],
+            "Cải thiện": [
+                "Pill Switcher (Layout / Theme / Sidebar) giờ hiển thị đúng màu trong dark mode.",
+                "Background image trong Corner Badge inject qua CSS overlay — không ảnh hưởng đến drag và click.",
+            ],
+        },
+        "en": {
+            "New": [
+                "Background image: pick a JPG/PNG/WebP/GIF file for Under Toolbar, Sidebar and Corner Badge. Adjustable opacity and blur.",
+                "Hide icons: hide any metric (Experience, Streak, Cards, Retention, Study Time), Sound or Feedback button — applies across all 3 layouts.",
+                "New Settings dialog: 3 tabs (General / Appearance / Extras) — compact and easy to navigate.",
+                "Settings dialog has a Maximize button and remembers window size between sessions.",
+                "PomodoroVN menu auto-joins the AnkiVN menu if present (compatible with Super Free TTS), falls back to Tools menu.",
+            ],
+            "Improvements": [
+                "Pill Switcher (Layout / Theme / Sidebar) now renders correct colors in dark mode.",
+                "Corner Badge background image uses CSS overlay — does not interfere with drag or click.",
+            ],
+        },
+    },
     {
         "version": "1.2.0",
         "date": "2026-05-20",

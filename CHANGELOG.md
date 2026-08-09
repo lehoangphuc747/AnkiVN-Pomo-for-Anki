@@ -4,6 +4,48 @@ Lịch sử thay đổi PomodoroVN. Bắt đầu từ version 1.1.0.
 
 ---
 
+## [1.3.1] - 2026-06-07
+
+### Sửa lỗi
+
+- **Sửa lỗi lệch múi giờ (timezone offset)** — Sửa lỗi tính sai mốc bắt đầu ngày học của Anki khi chạy SQLite ở múi giờ khác UTC. Giúp hiển thị chính xác số thẻ học trong ngày (Cards Studied), Streak và điểm kinh nghiệm (XP) đồng bộ hoàn toàn với thống kê của Anki.
+
+---
+
+## [1.3.0] - 2026-05-29
+
+### Tính năng mới
+
+- **Ảnh nền** — Chọn file ảnh JPG/PNG/WebP/GIF làm nền cho Under Toolbar, Sidebar và Corner Badge. Tuỳ chỉnh độ mờ và blur.
+- **Ẩn icon** — Chọn ẩn các metric (Kinh nghiệm, Streak, Cards, Retention, Time), nút Âm thanh hoặc Góp ý — áp dụng cho cả 3 layout.
+- **Settings dialog mới** — Chia 3 tab (Chung / Giao diện / Tiện ích) — gọn gàng, dễ tìm. Tích hợp nút Maximize và ghi nhớ kích thước cửa sổ giữa các lần mở.
+- **Menu PomodoroVN** — Tự động chèn vào menu AnkiVN nếu có (tương thích Super Free TTS), fallback về menu Tools.
+
+### Cải thiện
+
+- Pill Switcher (Layout / Theme / Sidebar) hiển thị đúng màu trong dark mode.
+- Background image trong Corner Badge inject qua CSS overlay — không ảnh hưởng đến drag và click.
+
+---
+
+## [1.2.0] - 2026-05-20
+
+### Tính năng mới
+
+- **Overtime mode** — Bấm 'Tiếp tục học' khi Pomodoro hết giờ → timer đếm lên (+MM:SS) cho đến khi bạn tự dừng.
+- **Nút 'Pomo mới'** — Bắt đầu Pomodoro mới ngay lập tức.
+- **Âm thanh cue** — Phát tiếng báo khi bắt đầu và kết thúc Pomodoro / Break.
+- **Tuỳ chỉnh màu nhấn (accent color)** — Chọn màu bất kỳ cho timer, nút chính trong Cài đặt.
+- **Nút (?) trong popover metric** — Mở rộng chi tiết giải thích và số liệu live.
+
+### Cải thiện & Sửa lỗi
+
+- Thêm giải thích ngắn gọn khi hover các metric.
+- Đổi tên dialog hoàn thành thành 'Hoàn thành Pomodoro!'.
+- Sửa lỗi Sidebar bị cắt hiển thị khi số lượng Cards Studied lớn.
+
+---
+
 ## [1.1.12] - 2026-05-17
 
 ### Sửa lỗi
