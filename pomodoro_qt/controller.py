@@ -35,7 +35,7 @@ from .session_manager import PomodoroSessionManager
 from .study_time import make_study_time_popover
 from .settings_dialog import SettingsDialog
 from .storage import PomodoroDataStore, default_state
-from .style import addon_qss
+from .style import addon_qss, resolve_colors
 from .streaks import make_streak_popover
 from .timer import PomodoroTimer
 from .tracking import ReviewTracker
@@ -72,6 +72,7 @@ class PomodoroAddonController:
             self._refresh_metric_popover,
             self._toggle_timer_pause,
             self._stop_timer,
+            self._skip_break,
             self._edit_timer_duration,
             self.open_settings,
             self._save_corner_position,
@@ -212,6 +213,9 @@ class PomodoroAddonController:
     def open_settings(self) -> None:
         dialog = SettingsDialog(self.mw, self.settings)
         dialog.setStyleSheet(addon_qss(self.settings.theme, self.settings.effective_accent, self.settings.effective_break_color, self.settings.effective_bg_tint))
+        pal = resolve_colors(self.settings.theme, self.settings.effective_accent, self.settings.effective_bg_tint)
+        for sw in (dialog.layout_switcher, dialog.sidebar_side_switcher, dialog.theme_switcher):
+            sw.apply_palette(pal)
         dialog.export_requested.connect(lambda: self.backup_manager.export_backup(dialog))
         dialog.import_requested.connect(lambda: self._import_backup_from_dialog(dialog))
         dialog.reset_data_requested.connect(lambda: self._reset_study_data_from_dialog(dialog))
@@ -388,6 +392,15 @@ class PomodoroAddonController:
         self._warn_storage_failure_if_needed()
         self._display_metrics()
         QTimer.singleShot(0, self._mark_timer_started_if_running)
+
+    def _skip_break(self) -> None:
+        duration_seconds = max(0, self.timer.total_seconds - self.timer.time_left)
+        self.metrics = self.session_manager.complete_break(duration_seconds)
+        self._warn_storage_failure_if_needed()
+        self.timer.start_mode(MODE_POMODORO)
+        self._mark_timer_started_if_running()
+        self._save_timer_state()
+        self._display_metrics()
 
     def _show_done_dialog(self) -> None:
         is_overtime = self.timer.is_overtime

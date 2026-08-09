@@ -37,6 +37,7 @@ class UIManager:
         refresh_metric_popover: Callable[[str, object], None],
         on_toggle_timer_pause: Callable[[], None],
         on_stop_timer: Callable[[], None],
+        on_skip_break: Callable[[], None],
         on_edit_timer_duration: Callable[[], None],
         on_open_settings: Callable[[], None],
         on_corner_moved: Callable[[int, int], None],
@@ -46,6 +47,7 @@ class UIManager:
         self._refresh_metric_popover_callback = refresh_metric_popover
         self._on_toggle_timer_pause = on_toggle_timer_pause
         self._on_stop_timer = on_stop_timer
+        self._on_skip_break = on_skip_break
         self._on_edit_timer_duration = on_edit_timer_duration
         self._on_open_settings = on_open_settings
         self._on_corner_moved = on_corner_moved
@@ -101,6 +103,7 @@ class UIManager:
             widget.setStyleSheet(addon_qss(self._theme, self._accent_color, self._break_color, self._bg_tint))
 
         self._apply_bg_image(settings)
+        self._apply_hidden_icons(settings)
 
         self.under_dock = self._make_dock("PomodoroUnderToolbar", self.under_widget, TOP_DOCK)
         sidebar_area = RIGHT_DOCK if settings.sidebar_side == SIDEBAR_RIGHT else LEFT_DOCK
@@ -320,9 +323,20 @@ class UIManager:
         if self.corner_widget is not None and hasattr(self.corner_widget, "set_background_image"):
             self.corner_widget.set_background_image(path, opacity, blur, dark=is_dark)
 
+    def _apply_hidden_icons(self, settings) -> None:
+        """Hide icons based on user settings across all 3 layouts."""
+        hidden = set(getattr(settings, "hidden_icons", []) or [])
+        for widget in (self.under_widget, self.sidebar_widget):
+            if widget is not None and hasattr(widget, "apply_hidden_icons"):
+                widget.apply_hidden_icons(hidden)
+        if self.corner_widget is not None and hasattr(self.corner_widget, "set_hidden_icons"):
+            self.corner_widget.set_hidden_icons(list(hidden))
+
     def _connect_layout_buttons(self, widget, floating_audio: bool) -> None:
         widget.pause_button.clicked.connect(self._on_toggle_timer_pause)
         widget.stop_button.clicked.connect(self._on_stop_timer)
+        if hasattr(widget, "skip_button"):
+            widget.skip_button.clicked.connect(self._on_skip_break)
         widget.settings_button.clicked.connect(self._on_open_settings)
         widget.feedback_button.clicked.connect(self._on_open_feedback)
 
@@ -367,6 +381,9 @@ class UIManager:
             return
         if action == "stop":
             self._on_stop_timer()
+            return
+        if action == "skip_break":
+            self._on_skip_break()
             return
         if action == "settings":
             self._on_open_settings()

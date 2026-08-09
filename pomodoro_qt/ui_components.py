@@ -129,6 +129,13 @@ def make_stop_button(color: str = COLORS["muted"], font_size: int = 14) -> QPush
     return button
 
 
+def make_skip_break_button(color: str = COLORS["muted"], font_size: int = 14) -> QPushButton:
+    button = make_toolbar_icon_button("", tr("tooltip.skip_break"), color, font_size)
+    button.setIcon(QIcon(str(NEXT_ICON_PATH)))
+    button.setIconSize(QSize(20, 20))
+    return button
+
+
 def make_sound_button(color: str = COLORS["muted"], font_size: int = 17) -> QPushButton:
     button = make_toolbar_icon_button("", tr("tooltip.sound"), color, font_size)
     button.setIcon(QIcon(str(SOUNDCLOUD_ICON_PATH)))
@@ -554,6 +561,10 @@ class PillSwitcher(QWidget):
         self._animation = QPropertyAnimation(self, b"gliderGeometry", self)
         self._animation.setDuration(280)
         self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._pal_soft = COLORS["soft"]
+        self._pal_border = COLORS["border"]
+        self._pal_muted = COLORS["muted"]
+        self._pal_text = COLORS["text"]
 
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(self.PADDING, self.PADDING, self.PADDING, self.PADDING)
@@ -562,27 +573,36 @@ class PillSwitcher(QWidget):
         self.setObjectName("pillSwitcher")
         self.setStyleSheet(self._container_style())
 
+    def apply_palette(self, pal: dict) -> None:
+        """Re-apply stylesheet using a resolved color palette (from resolve_colors)."""
+        self._pal_soft = pal.get("soft", COLORS["soft"])
+        self._pal_border = pal.get("border", COLORS["border"])
+        self._pal_muted = pal.get("muted", COLORS["muted"])
+        self._pal_text = pal.get("text", COLORS["text"])
+        self.setStyleSheet(self._container_style())
+        self.update()
+
     def _container_style(self) -> str:
         return f"""
         QWidget#pillSwitcher {{
-            background: {COLORS['soft']};
-            border: 1px solid {COLORS['border']};
+            background: {self._pal_soft};
+            border: 1px solid {self._pal_border};
             border-radius: 999px;
         }}
         QPushButton[role="pillTab"] {{
             background: transparent;
             border: 0;
             border-radius: 999px;
-            color: {COLORS['muted']};
+            color: {self._pal_muted};
             font-size: 12px;
             font-weight: 600;
             padding: 0 {self.BUTTON_PADDING_H}px;
         }}
         QPushButton[role="pillTab"][active="true"] {{
-            color: {COLORS['text']};
+            color: {self._pal_text};
         }}
         QPushButton[role="pillTab"]:hover:!pressed {{
-            color: {COLORS['text']};
+            color: {self._pal_text};
         }}
         """
 

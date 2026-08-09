@@ -29,6 +29,7 @@ from .ui_components import (
     make_pause_button,
     make_settings_button,
     make_sound_button,
+    make_skip_break_button,
     make_stop_button,
     make_toolbar_metric_button,
     mode_label_text,
@@ -141,6 +142,7 @@ class UnderToolbarWidget(QFrame):
 
         self.pause_button = make_pause_button()
         self.stop_button = make_stop_button(COLORS["muted"], 14)
+        self.skip_button = make_skip_break_button(COLORS["muted"], 14)
         self.audio_button = make_sound_button(COLORS["muted"], 17)
         self.session_button = QPushButton("")
         self.session_button.setCursor(self.cursor())
@@ -168,7 +170,7 @@ class UnderToolbarWidget(QFrame):
         self.feedback_button = make_feedback_button(COLORS["muted"], 16)
         self.settings_button = make_settings_button(COLORS["muted"], 16)
 
-        for button in [self.pause_button, self.stop_button]:
+        for button in [self.pause_button, self.stop_button, self.skip_button]:
             timer_controls_row.addWidget(button)
         for button in [self.audio_button, self.session_button, self.feedback_button, self.settings_button]:
             utility_controls_row.addWidget(button)
@@ -192,6 +194,22 @@ class UnderToolbarWidget(QFrame):
         root.addWidget(center_box, 0)
         root.addWidget(right_box, 1)
 
+    _HIDDEN_MAP = {
+        "experience": "experience_button",
+        "streak": "streak_button",
+        "cards": "cards_button",
+        "study_time": "study_time_button",
+        "retention": "retention_button",
+        "audio": "audio_button",
+        "feedback": "feedback_button",
+    }
+
+    def apply_hidden_icons(self, hidden: set[str]) -> None:
+        for icon_id, attr in self._HIDDEN_MAP.items():
+            btn = getattr(self, attr, None)
+            if btn is not None:
+                btn.setVisible(icon_id not in hidden)
+
     def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.timer_label.setText(state.time_text)
@@ -201,6 +219,7 @@ class UnderToolbarWidget(QFrame):
         set_accent_property(self.timer_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused)
         self.stop_button.setVisible(state.started)
+        self.skip_button.setVisible(state.started and state.mode == MODE_BREAK)
         if study_time_metrics is not None:
             self.study_time_metrics = study_time_metrics
             self.study_time_button.setText(self._study_time_text(study_time_metrics))

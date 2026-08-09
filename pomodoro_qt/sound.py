@@ -70,6 +70,7 @@ from .audio_volume import (
 from .popover_shell import PopoverShell
 from .style import COLORS, refresh_style
 from .ui_components import (
+    LOOP_ICON_PATH,
     NEXT_ICON_PATH,
     PAUSE_ICON_PATH,
     PLAY_ICON_PATH,
@@ -116,6 +117,7 @@ class AudioPopover(PopoverShell):
         self._sound_effect_path: Optional[Path] = None
         self._active_audio_path: Optional[Path] = None
         self._loaded_audio_path: Optional[Path] = None
+        self._current_video_id: Optional[str] = None
         self._local_volume_percent = DEFAULT_LOCAL_VOLUME_PERCENT
         self._init_audio_player()
 
@@ -349,16 +351,20 @@ class AudioPopover(PopoverShell):
         controls.setContentsMargins(8, 0, 8, 0)
         controls.setSpacing(12)
         self.shuffle_button = self._transport_button(SHUFFLE_ICON_PATH, tr("action.shuffle"), 32, 15)
+        self.loop_button = self._transport_button(LOOP_ICON_PATH, tr("action.loop"), 32, 15)
         self.previous_button = self._transport_button(PREVIOUS_ICON_PATH, tr("action.previous"), 32, 15)
         self.play_button = self._play_button()
         self.next_button = self._transport_button(NEXT_ICON_PATH, tr("action.next"), 32, 15)
+        self.loop_button.clicked.connect(self._toggle_loop)
         controls.addWidget(self.shuffle_button)
+        controls.addWidget(self.loop_button)
         controls.addStretch(1)
         controls.addWidget(self.previous_button)
         controls.addWidget(self.play_button)
         controls.addWidget(self.next_button)
         controls.addStretch(1)
         controls.addSpacing(32)
+        self._refresh_loop_button()
         return controls
 
     def _field_label(self, text: str) -> QLabel:
@@ -421,6 +427,7 @@ class AudioPopover(PopoverShell):
         self.source.setText(source)
         self.youtube_preview.hide()
         self._clear_youtube_preview()
+        self._current_video_id = None
         self._active_audio_path = SOUND_DIR / str(sound.get("filename") or "")
         self._loaded_audio_path = None
         self._apply_local_volume()
@@ -436,6 +443,7 @@ class AudioPopover(PopoverShell):
         if not video_id:
             self._set_status(tr("audio.invalid_youtube"), True)
             return
+        self._current_video_id = video_id
         self.title.setText(tr("audio.youtube_title"))
         self.source.setText(tr("audio.youtube_source"))
         self.youtube_preview.show()
@@ -452,7 +460,8 @@ class AudioPopover(PopoverShell):
     def _load_youtube_preview(self, video_id: str) -> None:
         if self._youtube_web is None:
             return
-        embed_url = f"https://www.youtube.com/embed/{video_id}?autoplay=1&rel=0&playsinline=1"
+        loop_param = f"&loop=1&playlist={video_id}" if self._loop else ""
+        embed_url = f"https://www.youtube.com/embed/{video_id}?autoplay=1&rel=0&playsinline=1{loop_param}"
         iframe_title = html.escape(tr("audio.youtube_title"), quote=True)
         html_doc = (
             "<!doctype html>"
@@ -499,6 +508,20 @@ class AudioPopover(PopoverShell):
 
     def _toggle_playing(self) -> None:
         self._set_playing(not self._playing)
+
+    def _toggle_loop(self) -> None:
+        self._loop = not self._loop
+        self._refresh_loop_button()
+        if self.youtube_preview.isVisible() and self._current_video_id:
+            self._load_youtube_preview(self._current_video_id)
+        else:
+            self._apply_active_loop_setting()
+
+    def _refresh_loop_button(self) -> None:
+        if not hasattr(self, "loop_button"):
+            return
+        background = COLORS["red_light"] if self._loop else "transparent"
+        self.loop_button.setStyleSheet(self._transport_style(background))
 
     def _set_playing(self, playing: bool) -> None:
         actual_playing = playing

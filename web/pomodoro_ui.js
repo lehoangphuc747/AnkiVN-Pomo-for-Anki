@@ -7,6 +7,7 @@
   const timerRingProgress = document.getElementById("timer-ring-progress");
   const pauseButton = document.getElementById("pause-button");
   const stopButton = document.getElementById("stop-button");
+  const skipButton = document.getElementById("skip-button");
   const experienceLevel = document.getElementById("experience-level");
   const cardsCount = document.getElementById("cards-count");
   const studyTimeText = document.getElementById("study-time-text");
@@ -93,6 +94,7 @@
         ? `<img src="${pauseButton.dataset.playSrc}" alt="" class="control-icon" />`
         : `<img src="${pauseButton.dataset.pauseSrc}" alt="" class="control-icon" />`;
       stopButton.hidden = !Boolean(state.started);
+      skipButton.hidden = !(Boolean(state.started) && state.mode === "break");
 
       experienceLevel.textContent = metricsText.level || String(Math.max(0, safeNumber(metrics.level, 1)));
       cardsCount.textContent = metricsText.cards || String(Math.max(0, safeNumber(metrics.cards, 0)));

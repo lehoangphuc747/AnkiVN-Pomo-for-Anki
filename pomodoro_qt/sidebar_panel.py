@@ -32,6 +32,7 @@ from .ui_components import (
     make_primary_pause_button,
     make_settings_button,
     make_sidebar_metric_button,
+    make_skip_break_button,
     make_stop_button,
     mode_label_text,
     set_button_icon,
@@ -91,10 +92,12 @@ class SidebarWidget(QFrame):
         controls.setSpacing(14)
         self.pause_button = make_primary_pause_button()
         self.stop_button = make_stop_button(COLORS["text"], 13)
+        self.skip_button = make_skip_break_button(COLORS["text"], 13)
         self.session_button = self._make_session_button(metrics)
         controls.addStretch(1)
         controls.addWidget(self.pause_button)
         controls.addWidget(self.stop_button)
+        controls.addWidget(self.skip_button)
         controls.addWidget(self.session_button)
         controls.addStretch(1)
         root.addLayout(controls)
@@ -142,12 +145,29 @@ class SidebarWidget(QFrame):
         self.audio_button = make_audio_mini_button(tr("audio.short_rain"))
         root.addWidget(self.audio_button)
 
+    _HIDDEN_MAP = {
+        "experience": "experience_button",
+        "streak": "streak_button",
+        "cards": "cards_button",
+        "study_time": "study_time_button",
+        "retention": "retention_button",
+        "audio": "audio_button",
+        "feedback": "feedback_button",
+    }
+
+    def apply_hidden_icons(self, hidden: set[str]) -> None:
+        for icon_id, attr in self._HIDDEN_MAP.items():
+            btn = getattr(self, attr, None)
+            if btn is not None:
+                btn.setVisible(icon_id not in hidden)
+
     def sync_state(self, state: PomodoroTimerState, study_time_metrics: StudyTimeMetrics | None = None) -> None:
         self.mode_label.setText(mode_label_text(state) if state.mode == MODE_BREAK else self._brand_text())
         self.circular.set_state(state)
         set_accent_property(self.mode_label, state.accent)
         set_pause_button_state(self.pause_button, state.paused, primary=True)
         self.stop_button.setVisible(state.started)
+        self.skip_button.setVisible(state.started and state.mode == MODE_BREAK)
         if study_time_metrics is not None:
             self.study_time_metrics = study_time_metrics
             self.study_time_button.set_value(format_study_duration(study_time_metrics.today_seconds))

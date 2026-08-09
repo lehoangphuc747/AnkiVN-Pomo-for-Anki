@@ -121,6 +121,23 @@ class HtmlCornerBadgeWidget(QFrame):
         except Exception:
             pass
 
+    def set_hidden_icons(self, hidden: list[str]) -> None:
+        """Hide/show corner badge elements by data-action attribute."""
+        hidden_json = json.dumps(list(hidden))
+        js = (
+            "(function(){"
+            f"var h={hidden_json};"
+            "document.querySelectorAll('[data-action]').forEach(function(el){{"
+            "  if (h.indexOf(el.dataset.action)>=0) el.style.display='none';"
+            "  else el.style.display='';"
+            "}});"
+            "})();"
+        )
+        try:
+            self.web.page().runJavaScript(js)
+        except Exception:
+            pass
+
     def cleanup(self) -> None:
         """Tear down the embedded AnkiWebView so global hooks no longer reference it."""
         web = getattr(self, "web", None)
@@ -257,6 +274,7 @@ class HtmlCornerBadgeWidget(QFrame):
             "tooltip_pause_resume": tr("tooltip.pause_resume"),
             "tooltip_edit_time": tr("tooltip.edit_time"),
             "tooltip_stop": tr("tooltip.stop"),
+            "tooltip_skip_break": tr("tooltip.skip_break"),
             "tooltip_sound": tr("tooltip.sound"),
             "tooltip_feedback": tr("tooltip.feedback"),
             "tooltip_settings": tr("tooltip.settings"),
