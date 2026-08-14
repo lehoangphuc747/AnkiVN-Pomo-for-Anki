@@ -13,11 +13,25 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.3.1"
+CURRENT_VERSION = "1.4.0"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.4.0",
+        "date": "2026-08-14",
+        "vi": {
+            "Tính năng mới": [
+                "Sidebar Panel: bấm vào số giờ trong vòng tròn timer (vd 25:00) để mở dialog chỉnh thời gian — tương tự như Under Toolbar.",
+            ],
+        },
+        "en": {
+            "New": [
+                "Sidebar Panel: click the timer numbers inside the ring (e.g. 25:00) to open the Edit Time dialog — matching the Under Toolbar.",
+            ],
+        },
+    },
     {
         "version": "1.3.1",
         "date": "2026-06-07",

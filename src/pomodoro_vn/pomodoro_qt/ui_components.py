@@ -496,6 +496,8 @@ def _primary_pause_style() -> str:
 
 
 class CircularProgress(QFrame):
+    clicked = pyqtSignal()
+
     def __init__(self, diameter: int, line_width: int = 6, show_text: bool = True) -> None:
         super().__init__()
         self._progress = 1.0
@@ -505,6 +507,8 @@ class CircularProgress(QFrame):
         self._show_text = show_text
         self.setFixedSize(diameter, diameter)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(tr("tooltip.edit_time"))
 
     def set_state(self, state: PomodoroTimerState) -> None:
         self._progress = state.progress
@@ -541,6 +545,12 @@ class CircularProgress(QFrame):
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(self.rect().adjusted(0, 10, 0, -8), ALIGN_CENTER, self._text)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt override
+        point = event.position().toPoint() if hasattr(event, "position") else event.pos()
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(point):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
 
 class PillSwitcher(QWidget):

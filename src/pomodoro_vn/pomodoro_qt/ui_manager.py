@@ -113,6 +113,7 @@ class UIManager:
         self._connect_layout_buttons(self.under_widget, floating_audio=True)
         self._connect_layout_buttons(self.sidebar_widget, floating_audio=True)
         self.under_widget.timer_label.clicked.connect(self._on_edit_timer_duration)
+        self.sidebar_widget.circular.clicked.connect(self._on_edit_timer_duration)
         self.corner_widget.action_requested.connect(self._handle_corner_action)
         self.corner_widget.moved.connect(self._on_corner_moved)
 
