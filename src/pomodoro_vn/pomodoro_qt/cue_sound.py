@@ -46,6 +46,30 @@ LOG_PATH = Path(__file__).resolve().parent.parent / "pomodoro_qt.log"
 DEFAULT_VOLUME = 0.7
 
 
+def _release_source(player) -> None:
+    """Unload the media source so Windows does not keep the file locked.
+
+    Players are cached for lifetime reasons, but once playback finishes the
+    file handle must be released — otherwise Anki cannot delete the add-on
+    folder when installing an update (WinError 32, file in use).
+    """
+    try:
+        if _MULTIMEDIA_API == "qt6":
+            player.setSource(QUrl())
+        elif QMediaContent is not None:
+            player.setMedia(QMediaContent())
+    except Exception:
+        pass
+
+
+def _cue_status_changed(player, status) -> None:
+    try:
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            _release_source(player)
+    except Exception:
+        pass
+
+
 _players: Dict[str, "object"] = {}
 _audio_outputs: Dict[str, "object"] = {}
 
@@ -81,6 +105,10 @@ def _play(path: Path, key: str) -> None:
                     player.setVolume(int(DEFAULT_VOLUME * 100))
                 except Exception:
                     pass
+            try:
+                player.mediaStatusChanged.connect(lambda status, p=player: _cue_status_changed(p, status))
+            except Exception:
+                pass
             _players[key] = player
             if audio_output is not None:
                 _audio_outputs[key] = audio_output
