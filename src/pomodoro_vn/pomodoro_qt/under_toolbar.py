@@ -22,6 +22,7 @@ from .ui_components import (
     GROWTH_ICON_PATH,
     HISTORY_ICON_PATH,
     STUDY_TIME_ICON_PATH,
+    FOCUS_TIME_ICON_PATH,
     TOMATO_ICON_PATH,
     make_clickable_label,
     make_feedback_button,
@@ -98,6 +99,11 @@ class UnderToolbarWidget(QFrame):
         )
         self.cards_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         set_button_icon(self.cards_button, BOLT_ICON_PATH, 17)
+        self.focus_button = make_toolbar_metric_button(
+            self._focus_time_text(metrics), COLORS["red"], tr("tooltip.focus_time"), 650
+        )
+        self.focus_button.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        set_button_icon(self.focus_button, FOCUS_TIME_ICON_PATH, 17)
         self.study_time_button = make_toolbar_metric_button(
             self._study_time_text(study_time_metrics), "#8a8aff", tr("tooltip.study_time"), 650
         )
@@ -108,7 +114,7 @@ class UnderToolbarWidget(QFrame):
         )
         set_button_icon(self.retention_button, BRAIN_ICON_PATH, 17)
 
-        for button in [self.experience_button, self.streak_button, self.cards_button, self.study_time_button, self.retention_button]:
+        for button in [self.experience_button, self.streak_button, self.cards_button, self.focus_button, self.study_time_button, self.retention_button]:
             metrics_row.addWidget(button)
 
         left.addWidget(self.mode_label)
@@ -198,6 +204,7 @@ class UnderToolbarWidget(QFrame):
         "experience": "experience_button",
         "streak": "streak_button",
         "cards": "cards_button",
+        "focus_time": "focus_button",
         "study_time": "study_time_button",
         "retention": "retention_button",
         "audio": "audio_button",
@@ -244,6 +251,7 @@ class UnderToolbarWidget(QFrame):
         self.streak_button.setText(self._streak_text(streak_metrics))
         self.retention_button.setText(tr("common.percent", value=format_number(retention_metrics.today_retention)))
         self.cards_button.setText(self._cards_text(cards_metrics))
+        self.focus_button.setText(self._focus_time_text(metrics))
         self.study_time_button.setText(self._study_time_text(study_time_metrics))
 
     def metric_buttons(self) -> Iterable[QPushButton]:
@@ -251,6 +259,7 @@ class UnderToolbarWidget(QFrame):
             self.experience_button,
             self.streak_button,
             self.cards_button,
+            self.focus_button,
             self.study_time_button,
             self.retention_button,
             self.session_button,
@@ -264,6 +273,9 @@ class UnderToolbarWidget(QFrame):
 
     def _cards_text(self, metrics: CardsStudiedMetrics) -> str:
         return format_number(max(0, metrics.cards))
+
+    def _focus_time_text(self, metrics: SessionMetrics) -> str:
+        return format_study_duration(metrics.today_focus_seconds)
 
     def _study_time_text(self, metrics: StudyTimeMetrics) -> str:
         return format_study_duration(metrics.today_seconds)

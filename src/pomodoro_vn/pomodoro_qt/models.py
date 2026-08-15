@@ -24,7 +24,7 @@ THEME_LIGHT = "light"
 THEME_DARK = "dark"
 
 HIDEABLE_ICONS = (
-    "experience", "streak", "cards", "study_time", "retention",
+    "experience", "streak", "cards", "focus_time", "study_time", "retention",
     "audio", "feedback",
 )
 
@@ -413,6 +413,7 @@ class SessionMetrics:
     next_level_xp: int = 20
     xp_to_next_level: int = 20
     level_progress: int = 0
+    today_focus_seconds: int = 0
 
 
 def _clamp_int(value: object, fallback: int, minimum: int, maximum: int) -> int:

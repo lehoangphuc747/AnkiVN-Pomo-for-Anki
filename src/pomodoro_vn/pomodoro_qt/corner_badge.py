@@ -257,6 +257,7 @@ class HtmlCornerBadgeWidget(QFrame):
         fire_icon_src = _svg_data_uri(ICON_DIR / "fire-svgrepo-com.svg")
         brain_icon_src = _svg_data_uri(ICON_DIR / "brain-svgrepo-com.svg")
         time_icon_src = _svg_data_uri(ICON_DIR / "time-clock-timer-appointment-svgrepo-com.svg")
+        focus_icon_src = _svg_data_uri(ICON_DIR / "clock-svgrepo-com.svg")
         history_icon_src = _svg_data_uri(ICON_DIR / "history.svg")
         values = {
             "html_lang": current_language(),
@@ -264,6 +265,7 @@ class HtmlCornerBadgeWidget(QFrame):
             "corner_aria": tr("corner.aria"),
             "tooltip_drag_corner": tr("tooltip.drag_corner"),
             "tooltip_session_history": self._plain_tooltip(tr("tooltip.session_history")),
+            "tooltip_focus_time": self._plain_tooltip(tr("tooltip.focus_time")),
             "tooltip_study_time": self._plain_tooltip(tr("tooltip.study_time")),
             "tooltip_experience": self._plain_tooltip(tr("tooltip.experience")),
             "tooltip_streak": self._plain_tooltip(tr("tooltip.streak")),
@@ -306,6 +308,7 @@ class HtmlCornerBadgeWidget(QFrame):
             "fire_icon_src": fire_icon_src,
             "brain_icon_src": brain_icon_src,
             "time_icon_src": time_icon_src,
+            "focus_icon_src": focus_icon_src,
             "history_icon_src": history_icon_src,
         }
         for key, value in values.items():
@@ -354,6 +357,7 @@ class HtmlCornerBadgeWidget(QFrame):
                 "cards": cards_metrics.cards,
                 "retention": retention_metrics.today_retention,
                 "streakDays": streak_metrics.days,
+                "focusTimeToday": metrics.today_focus_seconds,
                 "studyTimeToday": study_time_metrics.today_seconds,
                 "studyTimeAllTime": study_time_metrics.all_time_seconds,
             },
@@ -362,6 +366,7 @@ class HtmlCornerBadgeWidget(QFrame):
                 "cards": format_number(cards_metrics.cards),
                 "retention": tr("common.percent", value=format_number(retention_metrics.today_retention)),
                 "streakDays": format_number(streak_metrics.days),
+                "focusTime": format_study_duration(metrics.today_focus_seconds),
                 "studyTime": format_study_duration(study_time_metrics.today_seconds),
             },
         }

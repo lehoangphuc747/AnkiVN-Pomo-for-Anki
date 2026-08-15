@@ -10,6 +10,7 @@
   const skipButton = document.getElementById("skip-button");
   const experienceLevel = document.getElementById("experience-level");
   const cardsCount = document.getElementById("cards-count");
+  const focusTimeText = document.getElementById("focus-time-text");
   const studyTimeText = document.getElementById("study-time-text");
   const streakText = document.getElementById("streak-text");
   const retentionText = document.getElementById("retention-text");
@@ -90,6 +91,11 @@
       modeText.textContent = state.label || labels.pomodoro || "Pomodoro";
       timerText.textContent = state.timeText || "25:00";
       setProgress(typeof state.progress === "number" ? state.progress : 1);
+      if (state.paused) {
+        root.classList.add("is-paused");
+      } else {
+        root.classList.remove("is-paused");
+      }
       pauseButton.innerHTML = state.paused
         ? `<img src="${pauseButton.dataset.playSrc}" alt="" class="control-icon" />`
         : `<img src="${pauseButton.dataset.pauseSrc}" alt="" class="control-icon" />`;
@@ -98,6 +104,9 @@
 
       experienceLevel.textContent = metricsText.level || String(Math.max(0, safeNumber(metrics.level, 1)));
       cardsCount.textContent = metricsText.cards || String(Math.max(0, safeNumber(metrics.cards, 0)));
+      if (focusTimeText) {
+        focusTimeText.textContent = metricsText.focusTime || "0m";
+      }
       studyTimeText.textContent = metricsText.studyTime || "0m";
       streakText.textContent = metricsText.streakDays || String(Math.max(0, safeNumber(metrics.streakDays, 0)));
       retentionText.textContent =

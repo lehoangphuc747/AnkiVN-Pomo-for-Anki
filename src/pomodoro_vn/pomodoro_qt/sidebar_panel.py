@@ -25,6 +25,7 @@ from .ui_components import (
     TOMATO_ICON_PATH,
     FIRE_ICON_PATH,
     STUDY_TIME_ICON_PATH,
+    FOCUS_TIME_ICON_PATH,
     make_audio_mini_button,
     make_button,
     make_feedback_button,
@@ -124,6 +125,13 @@ class SidebarWidget(QFrame):
             COLORS["yellow"],
             BOLT_ICON_PATH,
         )
+        self.focus_button = make_sidebar_metric_button(
+            tr("metric.focus_time_short"),
+            format_study_duration(metrics.today_focus_seconds),
+            tr("tooltip.focus_time"),
+            COLORS["red"],
+            FOCUS_TIME_ICON_PATH,
+        )
         self.study_time_button = make_sidebar_metric_button(
             tr("metric.study_time_short"),
             format_study_duration(study_time_metrics.today_seconds),
@@ -137,7 +145,7 @@ class SidebarWidget(QFrame):
         metrics_layout = QVBoxLayout()
         metrics_layout.setSpacing(0)
         metrics_layout.setContentsMargins(0, 0, 0, 0)
-        for button in [self.experience_button, self.streak_button, self.cards_button, self.study_time_button, self.retention_button]:
+        for button in [self.experience_button, self.streak_button, self.cards_button, self.focus_button, self.study_time_button, self.retention_button]:
             metrics_layout.addWidget(button)
         root.addLayout(metrics_layout)
 
@@ -149,6 +157,7 @@ class SidebarWidget(QFrame):
         "experience": "experience_button",
         "streak": "streak_button",
         "cards": "cards_button",
+        "focus_time": "focus_button",
         "study_time": "study_time_button",
         "retention": "retention_button",
         "audio": "audio_button",
@@ -191,6 +200,7 @@ class SidebarWidget(QFrame):
         self.experience_button.set_value(self._experience_text(experience_metrics))
         self.retention_button.set_value(tr("common.percent", value=format_number(retention_metrics.today_retention)))
         self.cards_button.set_value(tr("metric.cards_short", count=format_number(cards_metrics.cards)))
+        self.focus_button.set_value(format_study_duration(metrics.today_focus_seconds))
         self.study_time_button.set_value(format_study_duration(study_time_metrics.today_seconds))
         self.streak_button.set_value(tr("metric.days", count=format_number(streak_metrics.days)))
 
@@ -199,6 +209,7 @@ class SidebarWidget(QFrame):
             self.session_button,
             self.experience_button,
             self.cards_button,
+            self.focus_button,
             self.study_time_button,
             self.streak_button,
             self.retention_button,

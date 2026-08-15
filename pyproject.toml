@@ -1,6 +1,6 @@
 [project]
 name = "pomodoro-vn"
-version = "1.4.0"
+version = "1.4.1"
 description = "PomodoroVN - Pomodoro timer and study metrics add-on for Anki"
 readme = "README.md"
 requires-python = ">=3.13"

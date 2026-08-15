@@ -13,11 +13,27 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.4.0"
+CURRENT_VERSION = "1.4.1"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.4.1",
+        "date": "2026-08-15",
+        "vi": {
+            "Tính năng mới": [
+                "Chỉ số Focus Time (Thời gian tập trung): theo dõi tổng thời gian các phiên Pomodoro đã hoàn thành hôm nay, hiển thị đồng bộ trên cả 3 giao diện (Corner Badge, Under Toolbar, Sidebar Panel).",
+                "Corner Badge: tối ưu giao diện với hiệu ứng đổ bóng đa tầng, vòng timer mượt mà, hỗ trợ animation nhấp nháy khi tạm dừng và bố cục metric 2 hàng x 3 cột cân đối.",
+            ],
+        },
+        "en": {
+            "New": [
+                "Focus Time metric: track total completed Pomodoro focus duration today across all 3 layouts (Corner Badge, Under Toolbar, Sidebar Panel).",
+                "Corner Badge UI polish: multi-layered elevation shadow, refined timer ring, paused pulse animation, and balanced 2x3 metric grid layout.",
+            ],
+        },
+    },
     {
         "version": "1.4.0",
         "date": "2026-08-14",

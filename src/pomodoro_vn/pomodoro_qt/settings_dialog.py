@@ -262,6 +262,7 @@ class SettingsDialog(QDialog):
             "experience": "tooltip.experience",
             "streak": "tooltip.streak",
             "cards": "tooltip.cards",
+            "focus_time": "tooltip.focus_time",
             "study_time": "tooltip.study_time",
             "retention": "tooltip.retention",
             "audio": "tooltip.sound",

@@ -347,6 +347,10 @@ class UIManager:
         widget.session_button.clicked.connect(lambda _checked=False, button=widget.session_button: self.show_metric("session", button))
         widget.experience_button.clicked.connect(lambda _checked=False, button=widget.experience_button: self.show_metric("experience", button))
         widget.cards_button.clicked.connect(lambda _checked=False, button=widget.cards_button: self.show_metric("cards", button))
+        if hasattr(widget, "focus_button"):
+            widget.focus_button.clicked.connect(
+                lambda _checked=False, button=widget.focus_button: self.show_metric("session", button)
+            )
         if hasattr(widget, "study_time_button"):
             widget.study_time_button.clicked.connect(
                 lambda _checked=False, button=widget.study_time_button: self.show_metric("study_time", button)
@@ -394,6 +398,9 @@ class UIManager:
             return
         if action == "edit_time":
             self._on_edit_timer_duration()
+            return
+        if action == "focus_time" and self.corner_widget:
+            self.show_metric("session", self.corner_widget)
             return
         if action in {"session", "experience", "cards", "study_time", "streak", "retention"} and self.corner_widget:
             self.show_metric(action, self.corner_widget)

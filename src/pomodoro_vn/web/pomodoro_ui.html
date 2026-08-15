@@ -50,6 +50,10 @@
         <span id="cards-count">0</span>
         <img src="{{bolt_icon_src}}" alt="" class="metric-icon" />
       </button>
+      <button id="focus-button" data-action="focus_time" type="button" class="metric-chip metric-focus-time" title="{{tooltip_focus_time}}">
+        <span id="focus-time-text">0m</span>
+        <img src="{{focus_icon_src}}" alt="" class="metric-icon" />
+      </button>
       <button id="study-time-button" data-action="study_time" type="button" class="metric-chip metric-study-time" title="{{tooltip_study_time}}">
         <span id="study-time-text">0m</span>
         <img src="{{time_icon_src}}" alt="" class="metric-icon" />
@@ -64,29 +68,6 @@
       <button id="audio-button" data-action="audio" type="button" title="{{tooltip_sound}}"><img src="{{soundcloud_icon_src}}" alt="" class="control-icon" /></button>
       <button data-action="feedback" type="button" title="{{tooltip_feedback}}"><img src="{{feedback_icon_src}}" alt="" class="control-icon" /></button>
       <button data-action="settings" type="button" title="{{tooltip_settings}}"><img src="{{settings_icon_src}}" alt="" class="control-icon" /></button>
-    </div>
-
-    <div id="inline-audio" class="inline-audio" aria-hidden="true">
-      <div class="audio-track">
-        <div class="album">&#9834;</div>
-        <div class="track-copy">
-          <strong>{{audio_title_lofi}}</strong>
-          <span>{{audio_source_chillhop}}</span>
-        </div>
-      </div>
-      <div class="mini-progress audio-progress"><span></span></div>
-      <div class="audio-controls">
-        <button type="button" title="{{action_shuffle}}"><img src="{{shuffle_icon_src}}" alt="" class="audio-control-icon" /></button>
-        <button type="button" title="{{action_previous}}"><img src="{{previous_icon_src}}" alt="" class="audio-control-icon" /></button>
-        <button id="audio-play-button" type="button" class="play" title="{{action_play}}" aria-pressed="false" data-play-src="{{play_icon_src}}" data-pause-src="{{pause_icon_src}}"><img src="{{play_icon_src}}" alt="" class="audio-control-icon play-icon" /></button>
-        <button type="button" title="{{action_next}}"><img src="{{next_icon_src}}" alt="" class="audio-control-icon" /></button>
-        <button type="button" title="{{action_loop}}"><img src="{{loop_icon_src}}" alt="" class="audio-control-icon" /></button>
-      </div>
-      <div class="youtube-row">
-        <input type="url" placeholder="{{audio_youtube_placeholder}}">
-        <button type="button">{{action_load}}</button>
-      </div>
-      <p>{{audio_inline_support}}</p>
     </div>
 
   </section>

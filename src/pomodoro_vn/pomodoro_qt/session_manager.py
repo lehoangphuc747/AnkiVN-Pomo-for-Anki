@@ -46,6 +46,7 @@ class PomodoroSessionManager:
         session_progress = source["progress"]
         total_xp = self._coerce_non_negative(source.get("total_xp"))
         level = level_state(total_xp)
+        today_focus_seconds = self.today_focus_seconds()
         return SessionMetrics(
             session_index=session.session_index,
             session_total=session.session_total,
@@ -60,6 +61,7 @@ class PomodoroSessionManager:
             next_level_xp=level["next_level_xp"],
             xp_to_next_level=level["xp_to_next_level"],
             level_progress=level["progress"],
+            today_focus_seconds=today_focus_seconds,
         )
 
     def timer_state(self) -> TimerRuntimeState:
@@ -178,6 +180,14 @@ class PomodoroSessionManager:
         if self._analytics_store is not None:
             return self._analytics_store.session_history_for_day(today_key)
         return []
+
+    def today_focus_seconds(self) -> int:
+        """Return total focus duration in seconds for today from completed Pomodoro sessions."""
+        return sum(
+            entry.duration_seconds
+            for entry in self.today_history()
+            if entry.mode == MODE_POMODORO
+        )
 
     def ensure_active_session(self, deck_id: Optional[int] = None, deck_name: str = "") -> StudySessionState:
         if self.active_session is None:
