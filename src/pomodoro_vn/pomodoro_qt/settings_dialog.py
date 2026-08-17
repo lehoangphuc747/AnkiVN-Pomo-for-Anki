@@ -149,6 +149,7 @@ class SettingsDialog(QDialog):
 
         self.auto_break = QCheckBox(tr("settings.auto_start_break"))
         self.auto_break.setChecked(settings.auto_start_break)
+        self.auto_break.setToolTip(tr("settings.auto_start_break_tooltip"))
         self.auto_pomodoro_after_break = QCheckBox(tr("settings.auto_start_pomodoro_after_break"))
         self.auto_pomodoro_after_break.setChecked(settings.auto_start_pomodoro_after_break)
 

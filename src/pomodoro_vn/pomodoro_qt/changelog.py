@@ -13,11 +13,29 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.4.1"
+CURRENT_VERSION = "1.4.2"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.4.2",
+        "date": "2026-08-17",
+        "vi": {
+            "Thay đổi hành vi": [
+                "Tự động chuyển sang giờ nghỉ sau khi Pomodoro kết thúc giờ là tuỳ chọn (mặc định TẮT).",
+                "Bật trong Cài đặt ở mục \"Tự động chuyển sang giờ nghỉ sau khi Pomodoro kết thúc\" để tự sang break ngay.",
+                "Khi tắt (mặc định): hết Pomodoro sẽ hiện khung hỏi bạn có muốn chuyển sang giờ nghỉ hay không (kèm các lựa chọn Nghỉ / Pomo mới / Tiếp tục học / Kết thúc).",
+            ],
+        },
+        "en": {
+            "Behavior change": [
+                "Auto-switching to a break after the Pomodoro ends is now opt-in (default OFF).",
+                "Tick \"Auto switch to break when the Pomodoro ends\" in Settings to go straight to break.",
+                "When off (default): a dialog asks whether to switch to break when the Pomodoro ends (choices: Take break / New Pomo / Keep going / End).",
+            ],
+        },
+    },
     {
         "version": "1.4.1",
         "date": "2026-08-15",

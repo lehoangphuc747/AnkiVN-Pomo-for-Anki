@@ -43,7 +43,7 @@ class PomodoroSettings:
     color_preset: str = "classic"
     pomodoro_minutes: int = 25
     break_minutes: int = 5
-    auto_start_break: bool = True
+    auto_start_break: bool = False
     auto_start_pomodoro_after_break: bool = False
     language: str = "vi"
     corner_left: Optional[int] = None
@@ -76,7 +76,7 @@ class PomodoroSettings:
             color_preset=str(config.get("color_preset") or "classic").strip() or "classic",
             pomodoro_minutes=_clamp_int(config.get("pomodoro_minutes"), 25, 1, 180),
             break_minutes=_clamp_int(config.get("break_minutes"), 5, 1, 60),
-            auto_start_break=bool(config.get("auto_start_break", True)),
+            auto_start_break=bool(config.get("auto_start_break", False)),
             auto_start_pomodoro_after_break=bool(config.get("auto_start_pomodoro_after_break", False)),
             language=language,
             corner_left=_optional_int(config.get("corner_left")),
