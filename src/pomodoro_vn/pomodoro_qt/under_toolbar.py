@@ -117,7 +117,6 @@ class UnderToolbarWidget(QFrame):
         for button in [self.experience_button, self.streak_button, self.cards_button, self.focus_button, self.study_time_button, self.retention_button]:
             metrics_row.addWidget(button)
 
-        left.addWidget(self.mode_label)
         left.addLayout(metrics_row)
         left.addStretch(1)
 
@@ -185,6 +184,8 @@ class UnderToolbarWidget(QFrame):
         right.addLayout(timer_controls_row)
         right.addSpacing(14)
         right.addLayout(utility_controls_row)
+        right.addSpacing(14)
+        right.addWidget(self.mode_label)
 
         left_box = QWidget()
         left_box.setLayout(left)
