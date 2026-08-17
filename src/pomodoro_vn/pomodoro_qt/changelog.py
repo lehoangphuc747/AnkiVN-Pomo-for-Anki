@@ -13,11 +13,25 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.4.2"
+CURRENT_VERSION = "1.4.3"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.4.3",
+        "date": "2026-08-17",
+        "vi": {
+            "Giao diện": [
+                "Under Toolbar: dời logo PomoVN sang góc phải (sau nhóm nút điều khiển) — bên trái giờ chỉ còn các chỉ số, thoáng hơn khi thêm metric mới.",
+            ],
+        },
+        "en": {
+            "UI": [
+                "Under Toolbar: moved the PomoVN brand logo to the right corner (after the controls) — the left side now holds only the stats, with more room as new metrics are added.",
+            ],
+        },
+    },
     {
         "version": "1.4.2",
         "date": "2026-08-17",

@@ -90,7 +90,7 @@ wheels = [
 
 [[package]]
 name = "pomodoro-vn"
-version = "1.4.2"
+version = "1.4.3"
 source = { editable = "." }
 
 [package.dev-dependencies]
