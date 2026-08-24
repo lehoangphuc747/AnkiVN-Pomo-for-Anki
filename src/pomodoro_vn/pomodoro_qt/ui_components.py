@@ -576,6 +576,7 @@ class PillSwitcher(QWidget):
         self._pal_border = COLORS["border"]
         self._pal_muted = COLORS["muted"]
         self._pal_text = COLORS["text"]
+        self._pal_window = COLORS["window"]
 
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(self.PADDING, self.PADDING, self.PADDING, self.PADDING)
@@ -590,6 +591,7 @@ class PillSwitcher(QWidget):
         self._pal_border = pal.get("border", COLORS["border"])
         self._pal_muted = pal.get("muted", COLORS["muted"])
         self._pal_text = pal.get("text", COLORS["text"])
+        self._pal_window = pal.get("window", COLORS["window"])
         self.setStyleSheet(self._container_style())
         self.update()
 
@@ -700,10 +702,15 @@ class PillSwitcher(QWidget):
         super().paintEvent(event)
         if self._glider_geom.width() <= 0:
             return
+        from .style import _blend, is_dark_active
+        if is_dark_active():
+            glider_color = _blend(self._pal_window, self._pal_text, 0.25)
+        else:
+            glider_color = self._pal_window
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#FFFFFF"))
+        painter.setBrush(QColor(glider_color))
         radius = self._glider_geom.height() / 2
         painter.drawRoundedRect(self._glider_geom, radius, radius)
 
