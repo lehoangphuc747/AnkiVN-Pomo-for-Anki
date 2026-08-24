@@ -86,6 +86,7 @@ class PomodoroAddonController:
             self.tracker.on_reviewer_end,
             self._on_profile_will_close,
             self._on_sync_did_finish,
+            on_theme_did_change=self._on_theme_did_change,
         )
 
         self._last_completed_metrics: Optional[SessionMetrics] = None
@@ -298,6 +299,13 @@ class PomodoroAddonController:
         # Refresh the revlog-based metrics (Cards, Retention, Streak, Study Time, XP)
         # so the toolbar reflects mobile reviews without waiting for the next answer.
         QTimer.singleShot(0, self._refresh_revlog_metrics_after_answer)
+
+    def _on_theme_did_change(self, *args) -> None:
+        if not self._profile_active:
+            return
+        if self.settings.theme != "system":
+            return
+        QTimer.singleShot(0, self._rebuild_ui)
 
     def _on_profile_will_close(self, *args) -> None:
         self._log_profile_event("profile_will_close.begin")

@@ -15,6 +15,7 @@ class AnkiBridge:
         on_reviewer_end: Callable[..., object],
         on_profile_close: Callable[..., None],
         on_sync_finished: Callable[..., None],
+        on_theme_did_change: Callable[..., None] | None = None,
     ) -> None:
         self._callbacks = {
             "state_did_change": on_state_changed,
@@ -26,6 +27,8 @@ class AnkiBridge:
             "profile_will_close": on_profile_close,
             "sync_did_finish": on_sync_finished,
         }
+        if on_theme_did_change is not None:
+            self._callbacks["theme_did_change"] = on_theme_did_change
 
     def install(self) -> None:
         try:
