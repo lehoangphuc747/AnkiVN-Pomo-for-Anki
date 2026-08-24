@@ -87,7 +87,7 @@ class PomodoroTimer(QObject):
             self._overtime_started_at = time.monotonic() - self._overtime_seconds if not self.paused else None
             self._deadline = None
         else:
-            self._started = bool(state.started or not self.paused or self.time_left < self.total_seconds)
+            self._started = bool(state.started or not self.paused) and self.time_left > 0
             self._deadline = self._make_deadline(self.time_left) if not self.paused and self.time_left > 0 else None
             self._overtime_started_at = None
         self.changed.emit(self.state())
