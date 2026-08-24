@@ -13,11 +13,33 @@ from __future__ import annotations
 from typing import Iterable
 
 
-CURRENT_VERSION = "1.4.3"
+CURRENT_VERSION = "1.4.4"
 
 
 # Versions are listed newest first.
 CHANGELOG_ENTRIES: list[dict] = [
+    {
+        "version": "1.4.4",
+        "date": "2026-08-24",
+        "vi": {
+            "Sửa lỗi": [
+                "Timer hiển thị 00:00 kèm nút Stop sau khi restart Anki — giờ về trạng thái ban đầu đúng.",
+                "Theme tự động đồng bộ khi đổi dark/light mode ở hệ thống (không cần vào Settings bấm OK).",
+            ],
+            "Giao diện": [
+                "Pill Switcher trong Settings: glider thích ứng dark mode (không còn trắng chói).",
+            ],
+        },
+        "en": {
+            "Fixes": [
+                "Timer showed 00:00 with Stop button after restarting Anki — now correctly resets to initial state.",
+                "Theme auto-syncs when switching system dark/light mode (no need to open Settings and click OK).",
+            ],
+            "UI": [
+                "Pill Switcher in Settings: glider adapts to dark mode (no more harsh white).",
+            ],
+        },
+    },
     {
         "version": "1.4.3",
         "date": "2026-08-17",
